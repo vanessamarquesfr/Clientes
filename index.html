@@ -1192,7 +1192,9 @@ function renderFin(){
   });
 
   const totalAPagar = pagamentos.filter(p=>p.status==='apagar').reduce((s,p)=>s+(Number(p.valor)||0),0);
-  document.getElementById('sub-info').textContent = `${pagamentos.length} pagamento${pagamentos.length===1?'':'s'} · ${formatBRL(totalAPagar)} a pagar`;
+  const mesAtual = new Date().toISOString().slice(0,7);
+  const totalMesAtual = pagamentos.filter(p=>p.status==='pago' && p.vencimento && p.vencimento.slice(0,7)===mesAtual).reduce((s,p)=>s+(Number(p.valor)||0),0);
+  document.getElementById('sub-info').textContent = `${pagamentos.length} pagamento${pagamentos.length===1?'':'s'} · ${formatBRL(totalAPagar)} a pagar · ${formatBRL(totalMesAtual)} gasto este mês`;
 
   const board = document.getElementById('board-fin');
   board.innerHTML = '';
@@ -1220,9 +1222,10 @@ function renderFin(){
       cardsEl.appendChild(empty);
     } else if(st.key === 'pago'){
       groupByMonth(items, 'vencimento').forEach(group=>{
+        const totalMes = group.items.reduce((s,p)=>s+(Number(p.valor)||0),0);
         const groupHead = document.createElement('div');
         groupHead.className = 'group-head';
-        groupHead.innerHTML = `${escapeHtml(group.label)} <span class="g-count">(${group.items.length})</span>`;
+        groupHead.innerHTML = `${escapeHtml(group.label)} <span class="g-count">(${group.items.length} · ${formatBRL(totalMes)})</span>`;
         cardsEl.appendChild(groupHead);
         group.items.forEach(p=>{
           cardsEl.appendChild(buildFinCard(p, colIdx));
