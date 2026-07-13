@@ -2,7 +2,6 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<link rel="canonical" href="https://projetovanessa.netlify.app/">
 <title>Painel de Demandas</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600;1,9..144,500&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
@@ -420,6 +419,51 @@ body{
 .nf-badge.emitida{color:#1f6b52; background:#d5ecdf;}
 .nf-badge.pendente{color:#8a4a13; background:#fbe4c6;}
 
+.attachment{
+  margin-bottom:9px;
+}
+.attachment a{
+  display:inline-flex;
+  align-items:center;
+  gap:5px;
+  font-size:12px;
+  font-weight:600;
+  color:var(--text-on-paper);
+  background:rgba(28,36,48,0.08);
+  border-radius:3px;
+  padding:5px 9px;
+  text-decoration:none;
+}
+.attachment a:hover{background:rgba(28,36,48,0.15);}
+
+.col-date-filter{
+  display:flex;
+  align-items:center;
+  gap:5px;
+  margin-bottom:12px;
+  flex-wrap:wrap;
+}
+.col-date-filter input[type="date"]{
+  background:var(--ink-softer);
+  border:1px solid var(--line);
+  color:var(--paper);
+  font-size:11px;
+  padding:5px 6px;
+  border-radius:3px;
+  flex:1;
+  min-width:0;
+}
+.col-date-filter button{
+  background:none;
+  border:1px solid var(--line);
+  color:var(--mist);
+  border-radius:3px;
+  font-size:11px;
+  padding:5px 8px;
+  cursor:pointer;
+}
+.col-date-filter button:hover{color:var(--paper);}
+
 </style>
 </head>
 <body>
@@ -564,6 +608,14 @@ body{
       <label>Falar com quem</label>
       <input type="text" id="in-falar-com" placeholder="Ex: João (Design)">
     </div>
+    <div class="field">
+      <label>Anexar arquivo (imagem, PDF ou vídeo até 8MB)</label>
+      <input type="file" id="in-arquivo" accept="image/*,application/pdf,video/*">
+    </div>
+    <div class="field">
+      <label>Ou cole um link do arquivo (recomendado para vídeos grandes)</label>
+      <input type="text" id="in-arquivo-link" placeholder="Ex: link do Google Drive">
+    </div>
     <div class="modal-actions">
       <button class="btn-secondary" id="btn-cancel">Cancelar</button>
       <button class="btn-primary" id="btn-save">Salvar</button>
@@ -625,6 +677,14 @@ body{
         <option value="sim">Sim</option>
       </select>
     </div>
+    <div class="field">
+      <label>Anexar nota fiscal (PDF ou imagem)</label>
+      <input type="file" id="fin-arquivo" accept="image/*,application/pdf">
+    </div>
+    <div class="field">
+      <label>Ou cole um link do arquivo</label>
+      <input type="text" id="fin-arquivo-link" placeholder="Ex: link do Google Drive">
+    </div>
     <div class="modal-actions">
       <button class="btn-secondary" id="fin-btn-cancel">Cancelar</button>
       <button class="btn-primary" id="fin-btn-save">Salvar</button>
@@ -642,6 +702,8 @@ const STATUS = [
 ];
 const STORAGE_KEY = 'demandas-marketing';
 let demandas = [];
+let concFiltroDe = '';
+let concFiltroAte = '';
 
 function uid(){return 'd' + Date.now().toString(36) + Math.random().toString(36).slice(2,7);}
 
@@ -664,6 +726,62 @@ async function apiSave(sheetName, items){
     headers: {'Content-Type': 'text/plain;charset=utf-8'},
     body: JSON.stringify({sheet: sheetName, items})
   });
+}
+
+function uploadFileToDrive(file){
+  return new Promise((resolve, reject)=>{
+    const reader = new FileReader();
+    reader.onload = async () => {
+      try{
+        const base64 = reader.result.split(',')[1];
+        const res = await fetch(API_URL, {
+          method:'POST',
+          headers:{'Content-Type':'text/plain;charset=utf-8'},
+          body: JSON.stringify({action:'uploadFile', filename:file.name, mimeType:file.type, base64})
+        });
+        const data = await res.json();
+        resolve(data);
+      }catch(err){ reject(err); }
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+async function resolveAttachment(fileInputId, linkInputId, existingUrl, existingName, saveBtnId){
+  const fileInput = document.getElementById(fileInputId);
+  const linkVal = document.getElementById(linkInputId).value.trim();
+  if(fileInput.files && fileInput.files[0]){
+    const file = fileInput.files[0];
+    if(file.size > 8*1024*1024){
+      alert('Esse arquivo passa de 8MB. Use o campo de link acima (cole um link do Google Drive, por exemplo) — especialmente para vídeos.');
+      return {cancel:true};
+    }
+    const btn = document.getElementById(saveBtnId);
+    const originalText = btn.textContent;
+    btn.textContent = 'Enviando arquivo...';
+    btn.disabled = true;
+    try{
+      const result = await uploadFileToDrive(file);
+      btn.textContent = originalText;
+      btn.disabled = false;
+      if(result.ok){
+        return {url: result.url, nome: file.name};
+      } else {
+        alert('Erro ao enviar arquivo: ' + (result.error || 'tente novamente.'));
+        return {cancel:true};
+      }
+    }catch(err){
+      btn.textContent = originalText;
+      btn.disabled = false;
+      alert('Erro ao enviar arquivo. Verifique sua internet.');
+      return {cancel:true};
+    }
+  }
+  if(linkVal){
+    return {url: linkVal, nome: 'Link externo'};
+  }
+  return {url: existingUrl || '', nome: existingName || ''};
 }
 
 async function loadData(){
@@ -716,7 +834,7 @@ function render(){
     if(fTipo && d.tipo !== fTipo) return false;
     if(fPrio && d.prioridade !== fPrio) return false;
     if(fEmpresa && d.empresa !== fEmpresa) return false;
-    if(search && !(d.titulo.toLowerCase().includes(search) || (d.solicitante||'').toLowerCase().includes(search))) return false;
+    if(search && !(d.titulo.toLowerCase().includes(search) || (d.solicitante||'').toLowerCase().includes(search) || (d.descricao||'').toLowerCase().includes(search))) return false;
     return true;
   });
 
@@ -730,13 +848,28 @@ function render(){
     col.className = 'column';
     col.dataset.status = st.key;
 
-    const items = filtered.filter(d=>d.status===st.key);
+    let items = filtered.filter(d=>d.status===st.key);
+
+    if(st.key === 'concluido' && (concFiltroDe || concFiltroAte)){
+      items = items.filter(d=>{
+        if(!d.prazo) return false;
+        if(concFiltroDe && d.prazo < concFiltroDe) return false;
+        if(concFiltroAte && d.prazo > concFiltroAte) return false;
+        return true;
+      });
+    }
 
     col.innerHTML = `
       <div class="column-head">
         <h2>${st.label}</h2>
         <span class="count-badge">${items.length}</span>
       </div>
+      ${st.key === 'concluido' ? `
+      <div class="col-date-filter">
+        <input type="date" id="conc-filtro-de" value="${concFiltroDe}" title="De">
+        <input type="date" id="conc-filtro-ate" value="${concFiltroAte}" title="Até">
+        <button id="conc-filtro-limpar" title="Limpar filtro">✕</button>
+      </div>` : ''}
       <div class="cards"></div>
     `;
 
@@ -746,6 +879,16 @@ function render(){
       empty.className = 'empty-col';
       empty.textContent = 'Nenhuma demanda aqui';
       cardsEl.appendChild(empty);
+    } else if(st.key === 'concluido'){
+      groupByMonth(items, 'prazo').forEach(group=>{
+        const groupHead = document.createElement('div');
+        groupHead.className = 'group-head';
+        groupHead.innerHTML = `${escapeHtml(group.label)} <span class="g-count">(${group.items.length})</span>`;
+        cardsEl.appendChild(groupHead);
+        group.items.forEach(d=>{
+          cardsEl.appendChild(buildCard(d, colIdx));
+        });
+      });
     } else {
       const EMPRESA_ORDER = ['Lotus','Flora Brasil','Novo Ciclo'];
       const groups = {};
@@ -768,6 +911,22 @@ function render(){
       });
     }
 
+    if(st.key === 'concluido'){
+      col.querySelector('#conc-filtro-de').addEventListener('change', e=>{
+        concFiltroDe = e.target.value;
+        render();
+      });
+      col.querySelector('#conc-filtro-ate').addEventListener('change', e=>{
+        concFiltroAte = e.target.value;
+        render();
+      });
+      col.querySelector('#conc-filtro-limpar').addEventListener('click', ()=>{
+        concFiltroDe = '';
+        concFiltroAte = '';
+        render();
+      });
+    }
+
     col.addEventListener('dragover', e=>{
       e.preventDefault();
       col.classList.add('drag-over');
@@ -782,6 +941,27 @@ function render(){
 
     board.appendChild(col);
   });
+}
+
+function monthLabelFromKey(key){
+  const meses = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+  const [y,m] = key.split('-');
+  return `${meses[parseInt(m,10)-1]} de ${y}`;
+}
+
+function groupByMonth(items, dateField){
+  const groups = {};
+  items.forEach(item=>{
+    const key = item[dateField] ? item[dateField].slice(0,7) : 'sem-data';
+    (groups[key] = groups[key] || []).push(item);
+  });
+  const sortedKeys = Object.keys(groups).filter(k=>k!=='sem-data').sort((a,b)=> b.localeCompare(a));
+  if(groups['sem-data']) sortedKeys.push('sem-data');
+  return sortedKeys.map(key=>({
+    key,
+    label: key === 'sem-data' ? 'Sem data definida' : monthLabelFromKey(key),
+    items: groups[key]
+  }));
 }
 
 function empresaClass(empresa){
@@ -815,6 +995,7 @@ function buildCard(d, colIdx){
     <div class="card-title">${escapeHtml(d.titulo)}</div>
     ${d.descricao ? `<div class="card-desc">${escapeHtml(d.descricao)}</div>` : ''}
     ${d.precisaApoio === 'sim' ? `<div class="support-badge">&#128100; Falar com: ${escapeHtml(d.falarCom || 'a definir')}</div>` : ''}
+    ${d.arquivoUrl ? `<div class="attachment"><a href="${d.arquivoUrl}" target="_blank" rel="noopener">📎 ${escapeHtml(d.arquivoNome || 'Arquivo anexado')}</a></div>` : ''}
     <div class="card-meta">
       <span>${escapeHtml(d.solicitante || 'sem solicitante')}</span>
       <span class="${dueClass}">${dueLabel}</span>
@@ -876,6 +1057,8 @@ function openModal(d){
   document.getElementById('in-prazo').value = d ? d.prazo : '';
   document.getElementById('in-precisa-apoio').value = d ? (d.precisaApoio || 'nao') : 'nao';
   document.getElementById('in-falar-com').value = d ? (d.falarCom || '') : '';
+  document.getElementById('in-arquivo').value = '';
+  document.getElementById('in-arquivo-link').value = d ? (d.arquivoUrl || '') : '';
   updateApoioField();
   document.getElementById('overlay').classList.add('show');
   document.getElementById('in-titulo').focus();
@@ -897,13 +1080,14 @@ document.getElementById('overlay').addEventListener('click', e=>{
   if(e.target.id === 'overlay') closeModal();
 });
 
-document.getElementById('btn-save').addEventListener('click', ()=>{
+document.getElementById('btn-save').addEventListener('click', async ()=>{
   const titulo = document.getElementById('in-titulo').value.trim();
   if(!titulo){
     document.getElementById('in-titulo').focus();
     return;
   }
   const id = document.getElementById('edit-id').value;
+  const existing = id ? demandas.find(x=>x.id===id) : null;
   const descricao = document.getElementById('in-descricao').value.trim();
   const empresa = document.getElementById('in-empresa').value;
   const solicitante = document.getElementById('in-solicitante').value.trim();
@@ -913,16 +1097,21 @@ document.getElementById('btn-save').addEventListener('click', ()=>{
   const precisaApoio = document.getElementById('in-precisa-apoio').value;
   const falarCom = document.getElementById('in-falar-com').value.trim();
 
+  const anexo = await resolveAttachment('in-arquivo', 'in-arquivo-link', existing && existing.arquivoUrl, existing && existing.arquivoNome, 'btn-save');
+  if(anexo.cancel) return;
+
   if(id){
     const d = demandas.find(x=>x.id===id);
     if(d){
       d.titulo = titulo; d.descricao = descricao; d.empresa = empresa; d.solicitante = solicitante; d.tipo = tipo;
       d.prioridade = prioridade; d.prazo = prazo; d.precisaApoio = precisaApoio; d.falarCom = falarCom;
+      d.arquivoUrl = anexo.url; d.arquivoNome = anexo.nome;
     }
   } else {
     demandas.push({
       id: uid(),
       titulo, descricao, empresa, solicitante, tipo, prioridade, prazo, precisaApoio, falarCom,
+      arquivoUrl: anexo.url, arquivoNome: anexo.nome,
       status: 'fila'
     });
   }
@@ -1029,6 +1218,16 @@ function renderFin(){
       empty.className = 'empty-col';
       empty.textContent = 'Nenhum pagamento aqui';
       cardsEl.appendChild(empty);
+    } else if(st.key === 'pago'){
+      groupByMonth(items, 'vencimento').forEach(group=>{
+        const groupHead = document.createElement('div');
+        groupHead.className = 'group-head';
+        groupHead.innerHTML = `${escapeHtml(group.label)} <span class="g-count">(${group.items.length})</span>`;
+        cardsEl.appendChild(groupHead);
+        group.items.forEach(p=>{
+          cardsEl.appendChild(buildFinCard(p, colIdx));
+        });
+      });
     } else {
       const EMPRESA_ORDER = ['Lotus','Flora Brasil','Novo Ciclo'];
       const groups = {};
@@ -1087,6 +1286,7 @@ function buildFinCard(p, colIdx){
     <div class="card-title">${escapeHtml(p.descricao)}</div>
     <div class="card-valor">${formatBRL(p.valor)}</div>
     <div class="nf-badge ${p.notaFiscal === 'sim' ? 'emitida' : 'pendente'}">${p.notaFiscal === 'sim' ? '📄 Nota fiscal emitida' : '📄 Nota fiscal pendente'}</div>
+    ${p.arquivoUrl ? `<div class="attachment"><a href="${p.arquivoUrl}" target="_blank" rel="noopener">📎 ${escapeHtml(p.arquivoNome || 'Arquivo anexado')}</a></div>` : ''}
     <div class="card-meta">
       <span class="${dueClass}">${dueLabel}</span>
       <span>${prioridadeLabel(p.prioridade)}</span>
@@ -1139,6 +1339,8 @@ function openFinModal(p){
   document.getElementById('fin-prioridade').value = p ? p.prioridade : 'media';
   document.getElementById('fin-vencimento').value = p ? p.vencimento : '';
   document.getElementById('fin-nota-fiscal').value = p ? (p.notaFiscal || 'nao') : 'nao';
+  document.getElementById('fin-arquivo').value = '';
+  document.getElementById('fin-arquivo-link').value = p ? (p.arquivoUrl || '') : '';
   document.getElementById('overlay-fin').classList.add('show');
   document.getElementById('fin-descricao').focus();
 }
@@ -1152,13 +1354,14 @@ document.getElementById('overlay-fin').addEventListener('click', e=>{
   if(e.target.id === 'overlay-fin') closeFinModal();
 });
 
-document.getElementById('fin-btn-save').addEventListener('click', ()=>{
+document.getElementById('fin-btn-save').addEventListener('click', async ()=>{
   const descricao = document.getElementById('fin-descricao').value.trim();
   if(!descricao){
     document.getElementById('fin-descricao').focus();
     return;
   }
   const id = document.getElementById('fin-edit-id').value;
+  const existing = id ? pagamentos.find(x=>x.id===id) : null;
   const empresa = document.getElementById('fin-empresa').value;
   const tipo = document.getElementById('fin-tipo').value;
   const valor = document.getElementById('fin-valor').value;
@@ -1166,16 +1369,21 @@ document.getElementById('fin-btn-save').addEventListener('click', ()=>{
   const vencimento = document.getElementById('fin-vencimento').value;
   const notaFiscal = document.getElementById('fin-nota-fiscal').value;
 
+  const anexo = await resolveAttachment('fin-arquivo', 'fin-arquivo-link', existing && existing.arquivoUrl, existing && existing.arquivoNome, 'fin-btn-save');
+  if(anexo.cancel) return;
+
   if(id){
     const p = pagamentos.find(x=>x.id===id);
     if(p){
       p.descricao = descricao; p.empresa = empresa; p.tipo = tipo;
       p.valor = valor; p.prioridade = prioridade; p.vencimento = vencimento; p.notaFiscal = notaFiscal;
+      p.arquivoUrl = anexo.url; p.arquivoNome = anexo.nome;
     }
   } else {
     pagamentos.push({
       id: uid(),
       descricao, empresa, tipo, valor, prioridade, vencimento, notaFiscal,
+      arquivoUrl: anexo.url, arquivoNome: anexo.nome,
       status: 'apagar'
     });
   }
