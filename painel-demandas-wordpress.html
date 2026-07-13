@@ -1,0 +1,1199 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Painel de Demandas</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600;1,9..144,500&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
+
+:root{
+  --ink:#1c2430;
+  --ink-soft:#252f3d;
+  --ink-softer:#2d3847;
+  --paper:#f4efe4;
+  --paper-dim:#e8e1d2;
+  --ember:#e2572b;
+  --amber:#dda63a;
+  --teal:#3f9c8f;
+  --mist:#9aa5b1;
+  --mist-dim:#6f7986;
+  --line:rgba(244,239,228,0.12);
+  --text-on-paper:#1c2430;
+  --text-muted-on-paper:#6b6355;
+}
+*{box-sizing:border-box;}
+body{
+  margin:0;
+  background:var(--ink);
+  color:var(--paper);
+  font-family:'Inter',sans-serif;
+  min-height:100vh;
+}
+.wrap{max-width:1280px;margin:0 auto;padding:32px 28px 60px;}
+
+/* Masthead */
+.masthead{
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-end;
+  border-bottom:1px solid var(--line);
+  padding-bottom:20px;
+  margin-bottom:24px;
+  flex-wrap:wrap;
+  gap:16px;
+}
+.masthead h1{
+  font-family:'Fraunces',serif;
+  font-style:italic;
+  font-weight:500;
+  font-size:38px;
+  margin:0;
+  letter-spacing:-0.5px;
+}
+.masthead .sub{
+  font-family:'IBM Plex Mono',monospace;
+  font-size:12px;
+  color:var(--mist);
+  margin-top:6px;
+  letter-spacing:0.3px;
+}
+.btn-add{
+  background:var(--ember);
+  color:#fff;
+  border:none;
+  border-radius:3px;
+  padding:12px 20px;
+  font-family:'Inter',sans-serif;
+  font-weight:600;
+  font-size:14px;
+  cursor:pointer;
+  transition:transform .12s ease, background .12s ease;
+}
+.btn-add:hover{background:#c94a22; transform:translateY(-1px);}
+
+/* Filters */
+.filters{
+  display:flex;
+  gap:10px;
+  flex-wrap:wrap;
+  margin-bottom:28px;
+}
+.filters select, .filters input{
+  background:var(--ink-soft);
+  border:1px solid var(--line);
+  color:var(--paper);
+  font-family:'Inter',sans-serif;
+  font-size:13px;
+  padding:9px 12px;
+  border-radius:3px;
+  outline:none;
+}
+.filters input{min-width:200px;}
+.filters select:focus, .filters input:focus{border-color:var(--amber);}
+
+/* Board */
+.board{
+  display:grid;
+  grid-template-columns:repeat(4,1fr);
+  gap:18px;
+}
+@media (max-width:900px){
+  .board{grid-template-columns:1fr;}
+}
+.column{
+  background:var(--ink-soft);
+  border-radius:6px;
+  padding:14px;
+  min-height:200px;
+  display:flex;
+  flex-direction:column;
+}
+.column.drag-over{outline:2px dashed var(--amber); outline-offset:-2px;}
+.column-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  margin-bottom:14px;
+  padding-bottom:10px;
+  border-bottom:1px solid var(--line);
+}
+.column-head h2{
+  font-family:'Fraunces',serif;
+  font-weight:600;
+  font-size:15px;
+  margin:0;
+  text-transform:uppercase;
+  letter-spacing:0.8px;
+}
+.count-badge{
+  font-family:'IBM Plex Mono',monospace;
+  font-size:11px;
+  color:var(--ink);
+  background:var(--mist);
+  border-radius:10px;
+  padding:2px 8px;
+  min-width:20px;
+  text-align:center;
+}
+.cards{
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+  flex:1;
+}
+.empty-col{
+  font-family:'IBM Plex Mono',monospace;
+  font-size:12px;
+  color:var(--mist-dim);
+  text-align:center;
+  padding:24px 8px;
+  border:1px dashed var(--line);
+  border-radius:4px;
+}
+.group-head{
+  display:flex;
+  align-items:center;
+  gap:6px;
+  font-family:'IBM Plex Mono',monospace;
+  font-size:11px;
+  text-transform:uppercase;
+  letter-spacing:0.5px;
+  color:var(--mist);
+  margin:2px 0 -2px;
+}
+.group-head .dot{width:6px;height:6px;}
+.group-head .g-count{color:var(--mist-dim);}
+
+/* Card */
+.card{
+  background:var(--paper);
+  color:var(--text-on-paper);
+  border-radius:3px;
+  padding:14px 14px 12px;
+  position:relative;
+  cursor:grab;
+  border-left:4px solid var(--mist);
+  box-shadow:0 1px 2px rgba(0,0,0,0.2);
+}
+.card:active{cursor:grabbing;}
+.card.p-urgente{border-left-color:var(--ember);}
+.card.p-alta{border-left-color:#d67d2c;}
+.card.p-media{border-left-color:var(--amber);}
+.card.p-baixa{border-left-color:var(--teal);}
+
+.tag{
+  position:absolute;
+  top:-8px;
+  right:12px;
+  transform:rotate(-3deg);
+  background:var(--ink);
+  color:var(--paper);
+  font-family:'IBM Plex Mono',monospace;
+  font-size:10px;
+  padding:3px 8px;
+  border-radius:2px;
+  letter-spacing:0.3px;
+  box-shadow:0 2px 3px rgba(0,0,0,0.25);
+}
+.card-title{
+  font-family:'Fraunces',serif;
+  font-weight:600;
+  font-size:15.5px;
+  line-height:1.3;
+  margin:4px 0 8px;
+  padding-right:10px;
+}
+.card-meta{
+  display:flex;
+  flex-wrap:wrap;
+  gap:6px 10px;
+  font-size:12px;
+  color:var(--text-muted-on-paper);
+  margin-bottom:10px;
+}
+.card-meta span{display:flex;align-items:center;gap:4px;}
+.dot{
+  width:7px;height:7px;border-radius:50%;display:inline-block;flex-shrink:0;
+}
+.emp-lotus .dot{background:#3f9c8f;}
+.emp-flora .dot{background:#6a9b3f;}
+.emp-novociclo .dot{background:#3f6f9c;}
+.company-name{font-weight:600;}
+.due-late{color:var(--ember);font-weight:600;}
+.due-soon{color:#b5791f;font-weight:600;}
+
+.card-actions{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  border-top:1px solid rgba(28,36,48,0.1);
+  padding-top:8px;
+}
+.card-desc{
+  font-size:12.5px;
+  color:var(--text-muted-on-paper);
+  line-height:1.4;
+  margin-bottom:8px;
+}
+.support-badge{
+  display:inline-flex;
+  align-items:center;
+  gap:5px;
+  font-size:11.5px;
+  font-weight:600;
+  color:#8a4a13;
+  background:#fbe4c6;
+  border-radius:3px;
+  padding:4px 8px;
+  margin-bottom:9px;
+}
+.move-btns{display:flex;gap:4px;}
+.move-btns button{
+  background:none;
+  border:1px solid rgba(28,36,48,0.2);
+  color:var(--text-on-paper);
+  border-radius:3px;
+  width:24px;
+  height:24px;
+  cursor:pointer;
+  font-size:12px;
+  line-height:1;
+}
+.move-btns button:disabled{opacity:0.25;cursor:default;}
+.move-btns button:not(:disabled):hover{background:rgba(28,36,48,0.08);}
+.icon-btn{
+  background:none;
+  border:none;
+  color:var(--text-muted-on-paper);
+  cursor:pointer;
+  font-size:13px;
+  padding:2px 6px;
+}
+.icon-btn:hover{color:var(--ember);}
+
+/* Modal */
+.overlay{
+  display:none;
+  position:fixed;inset:0;
+  background:rgba(15,18,24,0.6);
+  align-items:center;
+  justify-content:center;
+  z-index:50;
+  padding:20px;
+}
+.overlay.show{display:flex;}
+.modal{
+  background:var(--paper);
+  color:var(--text-on-paper);
+  width:100%;
+  max-width:440px;
+  border-radius:6px;
+  padding:26px;
+  max-height:90vh;
+  overflow-y:auto;
+}
+.modal h3{
+  font-family:'Fraunces',serif;
+  font-style:italic;
+  font-weight:500;
+  font-size:22px;
+  margin:0 0 18px;
+}
+.field{margin-bottom:14px;}
+.field label{
+  display:block;
+  font-size:12px;
+  font-weight:600;
+  margin-bottom:5px;
+  text-transform:uppercase;
+  letter-spacing:0.4px;
+  color:var(--text-muted-on-paper);
+}
+.field input, .field select{
+  width:100%;
+  padding:10px 11px;
+  border-radius:3px;
+  border:1px solid rgba(28,36,48,0.25);
+  font-family:'Inter',sans-serif;
+  font-size:14px;
+  background:#fff;
+  color:var(--text-on-paper);
+  outline:none;
+}
+.field textarea{
+  width:100%;
+  padding:10px 11px;
+  border-radius:3px;
+  border:1px solid rgba(28,36,48,0.25);
+  font-family:'Inter',sans-serif;
+  font-size:14px;
+  background:#fff;
+  color:var(--text-on-paper);
+  outline:none;
+  resize:vertical;
+}
+.field textarea:focus{border-color:var(--ember);}
+.field input:focus, .field select:focus{border-color:var(--ember);}
+.field-row{display:flex;gap:10px;}
+.field-row .field{flex:1;}
+.modal-actions{
+  display:flex;
+  justify-content:flex-end;
+  gap:10px;
+  margin-top:20px;
+}
+.btn-secondary{
+  background:none;
+  border:1px solid rgba(28,36,48,0.3);
+  color:var(--text-on-paper);
+  padding:10px 18px;
+  border-radius:3px;
+  font-family:'Inter',sans-serif;
+  font-weight:600;
+  font-size:13px;
+  cursor:pointer;
+}
+.btn-primary{
+  background:var(--ink);
+  color:var(--paper);
+  border:none;
+  padding:10px 18px;
+  border-radius:3px;
+  font-family:'Inter',sans-serif;
+  font-weight:600;
+  font-size:13px;
+  cursor:pointer;
+}
+.loading-msg{
+  font-family:'IBM Plex Mono',monospace;
+  font-size:12px;
+  color:var(--mist);
+  text-align:center;
+  padding:40px 0;
+}
+
+/* Tabs */
+.tabs{
+  display:flex;
+  gap:22px;
+  border-bottom:1px solid var(--line);
+  margin-bottom:24px;
+}
+.tab-btn{
+  background:none;
+  border:none;
+  color:var(--mist);
+  font-family:'Inter',sans-serif;
+  font-weight:600;
+  font-size:13px;
+  text-transform:uppercase;
+  letter-spacing:0.6px;
+  padding:0 2px 12px;
+  cursor:pointer;
+  border-bottom:2px solid transparent;
+}
+.tab-btn.active{color:var(--paper); border-bottom-color:var(--ember);}
+.tab-btn:hover{color:var(--paper);}
+
+.board-fin{grid-template-columns:repeat(2,1fr);}
+@media (max-width:700px){
+  .board-fin{grid-template-columns:1fr;}
+}
+.card-valor{
+  font-family:'IBM Plex Mono',monospace;
+  font-weight:700;
+  font-size:17px;
+  color:var(--text-on-paper);
+  margin:2px 0 8px;
+}
+.nf-badge{
+  display:inline-flex;
+  align-items:center;
+  gap:5px;
+  font-size:11.5px;
+  font-weight:600;
+  border-radius:3px;
+  padding:4px 8px;
+  margin-bottom:9px;
+}
+.nf-badge.emitida{color:#1f6b52; background:#d5ecdf;}
+.nf-badge.pendente{color:#8a4a13; background:#fbe4c6;}
+
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="masthead">
+    <div>
+      <h1 id="page-title">Painel de Demandas</h1>
+      <div class="sub" id="sub-info">carregando...</div>
+    </div>
+    <button class="btn-add" id="btn-open-modal">+ Nova demanda</button>
+  </div>
+
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="demandas" id="tab-demandas">Demandas</button>
+    <button class="tab-btn" data-tab="financeiro" id="tab-financeiro">Financeiro</button>
+  </div>
+
+  <div id="view-demandas">
+    <div class="filters">
+      <input type="text" id="f-search" placeholder="Buscar por título ou solicitante...">
+      <select id="f-tipo">
+        <option value="">Todos os tipos</option>
+        <option>Campanha</option>
+        <option>Post</option>
+        <option>E-mail</option>
+        <option>Peça gráfica</option>
+        <option>Evento</option>
+        <option>Outro</option>
+      </select>
+      <select id="f-prioridade">
+        <option value="">Toda prioridade</option>
+        <option value="urgente">Urgente</option>
+        <option value="alta">Alta</option>
+        <option value="media">Média</option>
+        <option value="baixa">Baixa</option>
+      </select>
+      <select id="f-empresa">
+        <option value="">Todas as empresas</option>
+        <option>Lotus</option>
+        <option>Flora Brasil</option>
+        <option>Novo Ciclo</option>
+      </select>
+    </div>
+
+    <div class="board" id="board">
+      <div class="loading-msg">Carregando demandas...</div>
+    </div>
+  </div>
+
+  <div id="view-financeiro" style="display:none;">
+    <div class="filters">
+      <input type="text" id="ff-search" placeholder="Buscar por descrição...">
+      <select id="ff-tipo">
+        <option value="">Todos os tipos</option>
+        <option>Mídia/Anúncio</option>
+        <option>Fornecedor</option>
+        <option>Ferramenta/Assinatura</option>
+        <option>Imposto</option>
+        <option>Outro</option>
+      </select>
+      <select id="ff-prioridade">
+        <option value="">Toda prioridade</option>
+        <option value="urgente">Urgente</option>
+        <option value="alta">Alta</option>
+        <option value="media">Média</option>
+        <option value="baixa">Baixa</option>
+      </select>
+      <select id="ff-empresa">
+        <option value="">Todas as empresas</option>
+        <option>Lotus</option>
+        <option>Flora Brasil</option>
+        <option>Novo Ciclo</option>
+      </select>
+    </div>
+
+    <div class="board board-fin" id="board-fin">
+      <div class="loading-msg">Carregando pagamentos...</div>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <h3 id="modal-title">Nova demanda</h3>
+    <input type="hidden" id="edit-id">
+    <div class="field">
+      <label>Título da demanda</label>
+      <input type="text" id="in-titulo" placeholder="Ex: Banner promoção de julho">
+    </div>
+    <div class="field">
+      <label>Descrição</label>
+      <textarea id="in-descricao" rows="3" placeholder="O que precisa ser feito, detalhes, contexto..."></textarea>
+    </div>
+    <div class="field">
+      <label>Empresa</label>
+      <select id="in-empresa">
+        <option>Lotus</option>
+        <option>Flora Brasil</option>
+        <option>Novo Ciclo</option>
+      </select>
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label>Solicitante</label>
+        <input type="text" id="in-solicitante" placeholder="Ex: Comercial">
+      </div>
+      <div class="field">
+        <label>Tipo</label>
+        <select id="in-tipo">
+          <option>Campanha</option>
+          <option>Post</option>
+          <option>E-mail</option>
+          <option>Peça gráfica</option>
+          <option>Evento</option>
+          <option>Outro</option>
+        </select>
+      </div>
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label>Prioridade</label>
+        <select id="in-prioridade">
+          <option value="baixa">Baixa</option>
+          <option value="media" selected>Média</option>
+          <option value="alta">Alta</option>
+          <option value="urgente">Urgente</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Prazo</label>
+        <input type="date" id="in-prazo">
+      </div>
+    </div>
+    <div class="field">
+      <label>Precisa de apoio de outra pessoa?</label>
+      <select id="in-precisa-apoio">
+        <option value="nao">Não</option>
+        <option value="sim">Sim</option>
+      </select>
+    </div>
+    <div class="field" id="field-falar-com" style="display:none;">
+      <label>Falar com quem</label>
+      <input type="text" id="in-falar-com" placeholder="Ex: João (Design)">
+    </div>
+    <div class="modal-actions">
+      <button class="btn-secondary" id="btn-cancel">Cancelar</button>
+      <button class="btn-primary" id="btn-save">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="overlay-fin">
+  <div class="modal">
+    <h3 id="modal-title-fin">Novo pagamento</h3>
+    <input type="hidden" id="fin-edit-id">
+    <div class="field">
+      <label>Descrição do pagamento</label>
+      <input type="text" id="fin-descricao" placeholder="Ex: Boleto mídia - Facebook Ads julho">
+    </div>
+    <div class="field">
+      <label>Empresa</label>
+      <select id="fin-empresa">
+        <option>Lotus</option>
+        <option>Flora Brasil</option>
+        <option>Novo Ciclo</option>
+      </select>
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label>Tipo</label>
+        <select id="fin-tipo">
+          <option>Mídia/Anúncio</option>
+          <option>Fornecedor</option>
+          <option>Ferramenta/Assinatura</option>
+          <option>Imposto</option>
+          <option>Outro</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Valor (R$)</label>
+        <input type="number" id="fin-valor" step="0.01" min="0" placeholder="0,00">
+      </div>
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label>Prioridade</label>
+        <select id="fin-prioridade">
+          <option value="baixa">Baixa</option>
+          <option value="media" selected>Média</option>
+          <option value="alta">Alta</option>
+          <option value="urgente">Urgente</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Vencimento</label>
+        <input type="date" id="fin-vencimento">
+      </div>
+    </div>
+    <div class="field">
+      <label>Nota fiscal emitida?</label>
+      <select id="fin-nota-fiscal">
+        <option value="nao">Não</option>
+        <option value="sim">Sim</option>
+      </select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-secondary" id="fin-btn-cancel">Cancelar</button>
+      <button class="btn-primary" id="fin-btn-save">Salvar</button>
+    </div>
+  </div>
+</div>
+
+
+<script>
+const STATUS = [
+  {key:'fila', label:'Fila'},
+  {key:'andamento', label:'Em andamento'},
+  {key:'revisao', label:'Revisão'},
+  {key:'concluido', label:'Concluído'}
+];
+const STORAGE_KEY = 'demandas-marketing';
+let demandas = [];
+
+function uid(){return 'd' + Date.now().toString(36) + Math.random().toString(36).slice(2,7);}
+
+const API_URL = 'https://script.google.com/macros/s/AKfycbyPxPCG21mlbN3649RukFod8uEeC74B-glOgckUAjEP7gGU9w2Xc53ZyBrOXnhwiCYd/exec';
+
+function normalizeDateField(v){
+  if(typeof v === 'string' && /^\d{4}-\d{2}-\d{2}T/.test(v)) return v.slice(0,10);
+  return v || '';
+}
+
+async function apiGet(sheetName){
+  const res = await fetch(`${API_URL}?sheet=${encodeURIComponent(sheetName)}`);
+  if(!res.ok) throw new Error('Falha ao buscar dados');
+  return await res.json();
+}
+
+async function apiSave(sheetName, items){
+  await fetch(API_URL, {
+    method: 'POST',
+    headers: {'Content-Type': 'text/plain;charset=utf-8'},
+    body: JSON.stringify({sheet: sheetName, items})
+  });
+}
+
+async function loadData(){
+  try{
+    const rows = await apiGet('Demandas');
+    demandas = rows.map(d => ({
+      ...d,
+      prazo: normalizeDateField(d.prazo)
+    }));
+  }catch(e){
+    console.error('Erro ao carregar demandas', e);
+    demandas = [];
+    document.getElementById('board').innerHTML = '<div class="loading-msg">Não foi possível conectar à planilha. Verifique sua internet e tente recarregar a página.</div>';
+  }
+  render();
+}
+
+async function saveData(){
+  try{
+    await apiSave('Demandas', demandas);
+  }catch(e){
+    console.error('Erro ao salvar', e);
+  }
+}
+
+function daysUntil(dateStr){
+  if(!dateStr) return null;
+  const today = new Date(); today.setHours(0,0,0,0);
+  const d = new Date(dateStr + 'T00:00:00');
+  return Math.round((d - today) / 86400000);
+}
+
+function fmtDate(dateStr){
+  if(!dateStr) return 'sem prazo';
+  const [y,m,d] = dateStr.split('-');
+  return `${d}/${m}`;
+}
+
+function prioridadeLabel(p){
+  return {urgente:'Urgente', alta:'Alta', media:'Média', baixa:'Baixa'}[p] || p;
+}
+
+function render(){
+  const search = document.getElementById('f-search').value.trim().toLowerCase();
+  const fTipo = document.getElementById('f-tipo').value;
+  const fPrio = document.getElementById('f-prioridade').value;
+  const fEmpresa = document.getElementById('f-empresa').value;
+
+  const filtered = demandas.filter(d=>{
+    if(fTipo && d.tipo !== fTipo) return false;
+    if(fPrio && d.prioridade !== fPrio) return false;
+    if(fEmpresa && d.empresa !== fEmpresa) return false;
+    if(search && !(d.titulo.toLowerCase().includes(search) || (d.solicitante||'').toLowerCase().includes(search))) return false;
+    return true;
+  });
+
+  document.getElementById('sub-info').textContent = `${demandas.length} demanda${demandas.length===1?'':'s'} no total`;
+
+  const board = document.getElementById('board');
+  board.innerHTML = '';
+
+  STATUS.forEach((st, colIdx)=>{
+    const col = document.createElement('div');
+    col.className = 'column';
+    col.dataset.status = st.key;
+
+    const items = filtered.filter(d=>d.status===st.key);
+
+    col.innerHTML = `
+      <div class="column-head">
+        <h2>${st.label}</h2>
+        <span class="count-badge">${items.length}</span>
+      </div>
+      <div class="cards"></div>
+    `;
+
+    const cardsEl = col.querySelector('.cards');
+    if(items.length === 0){
+      const empty = document.createElement('div');
+      empty.className = 'empty-col';
+      empty.textContent = 'Nenhuma demanda aqui';
+      cardsEl.appendChild(empty);
+    } else {
+      const EMPRESA_ORDER = ['Lotus','Flora Brasil','Novo Ciclo'];
+      const groups = {};
+      items.forEach(d=>{
+        const key = d.empresa || 'Sem empresa';
+        (groups[key] = groups[key] || []).push(d);
+      });
+      const orderedKeys = [
+        ...EMPRESA_ORDER.filter(k=>groups[k]),
+        ...Object.keys(groups).filter(k=>!EMPRESA_ORDER.includes(k))
+      ];
+      orderedKeys.forEach(key=>{
+        const groupHead = document.createElement('div');
+        groupHead.className = `group-head ${empresaClass(key)}`;
+        groupHead.innerHTML = `<span class="dot"></span>${escapeHtml(key)} <span class="g-count">(${groups[key].length})</span>`;
+        cardsEl.appendChild(groupHead);
+        groups[key].forEach(d=>{
+          cardsEl.appendChild(buildCard(d, colIdx));
+        });
+      });
+    }
+
+    col.addEventListener('dragover', e=>{
+      e.preventDefault();
+      col.classList.add('drag-over');
+    });
+    col.addEventListener('dragleave', ()=> col.classList.remove('drag-over'));
+    col.addEventListener('drop', e=>{
+      e.preventDefault();
+      col.classList.remove('drag-over');
+      const id = e.dataTransfer.getData('text/plain');
+      moveCard(id, st.key);
+    });
+
+    board.appendChild(col);
+  });
+}
+
+function empresaClass(empresa){
+  return {
+    'Lotus':'emp-lotus',
+    'Flora Brasil':'emp-flora',
+    'Novo Ciclo':'emp-novociclo'
+  }[empresa] || '';
+}
+
+function buildCard(d, colIdx){
+  const card = document.createElement('div');
+  card.className = `card p-${d.prioridade}`;
+  card.draggable = true;
+  card.dataset.id = d.id;
+
+  card.addEventListener('dragstart', e=>{
+    e.dataTransfer.setData('text/plain', d.id);
+  });
+
+  let dueClass = '';
+  let dueLabel = fmtDate(d.prazo);
+  if(d.prazo){
+    const diff = daysUntil(d.prazo);
+    if(diff < 0){ dueClass='due-late'; dueLabel = `atrasado (${fmtDate(d.prazo)})`; }
+    else if(diff <= 2){ dueClass='due-soon'; dueLabel = `${fmtDate(d.prazo)} (em breve)`; }
+  }
+
+  card.innerHTML = `
+    <div class="tag">${d.tipo}</div>
+    <div class="card-title">${escapeHtml(d.titulo)}</div>
+    ${d.descricao ? `<div class="card-desc">${escapeHtml(d.descricao)}</div>` : ''}
+    ${d.precisaApoio === 'sim' ? `<div class="support-badge">&#128100; Falar com: ${escapeHtml(d.falarCom || 'a definir')}</div>` : ''}
+    <div class="card-meta">
+      <span>${escapeHtml(d.solicitante || 'sem solicitante')}</span>
+      <span class="${dueClass}">${dueLabel}</span>
+      <span>${prioridadeLabel(d.prioridade)}</span>
+    </div>
+    <div class="card-actions">
+      <div class="move-btns">
+        <button class="move-left" title="Mover para trás" ${colIdx===0?'disabled':''}>&#8592;</button>
+        <button class="move-right" title="Mover para frente" ${colIdx===STATUS.length-1?'disabled':''}>&#8594;</button>
+      </div>
+      <div>
+        <button class="icon-btn btn-edit" title="Editar">Editar</button>
+        <button class="icon-btn btn-delete" title="Excluir">Excluir</button>
+      </div>
+    </div>
+  `;
+
+  card.querySelector('.move-left').addEventListener('click', ()=>{
+    if(colIdx>0) moveCard(d.id, STATUS[colIdx-1].key);
+  });
+  card.querySelector('.move-right').addEventListener('click', ()=>{
+    if(colIdx<STATUS.length-1) moveCard(d.id, STATUS[colIdx+1].key);
+  });
+  card.querySelector('.btn-edit').addEventListener('click', ()=> openModal(d));
+  card.querySelector('.btn-delete').addEventListener('click', ()=> deleteCard(d.id));
+
+  return card;
+}
+
+function escapeHtml(str){
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+function moveCard(id, newStatus){
+  const d = demandas.find(x=>x.id===id);
+  if(!d) return;
+  d.status = newStatus;
+  render();
+  saveData();
+}
+
+function deleteCard(id){
+  demandas = demandas.filter(x=>x.id!==id);
+  render();
+  saveData();
+}
+
+function openModal(d){
+  document.getElementById('modal-title').textContent = d ? 'Editar demanda' : 'Nova demanda';
+  document.getElementById('edit-id').value = d ? d.id : '';
+  document.getElementById('in-titulo').value = d ? d.titulo : '';
+  document.getElementById('in-descricao').value = d ? (d.descricao || '') : '';
+  document.getElementById('in-empresa').value = d ? d.empresa : 'Lotus';
+  document.getElementById('in-solicitante').value = d ? d.solicitante : '';
+  document.getElementById('in-tipo').value = d ? d.tipo : 'Campanha';
+  document.getElementById('in-prioridade').value = d ? d.prioridade : 'media';
+  document.getElementById('in-prazo').value = d ? d.prazo : '';
+  document.getElementById('in-precisa-apoio').value = d ? (d.precisaApoio || 'nao') : 'nao';
+  document.getElementById('in-falar-com').value = d ? (d.falarCom || '') : '';
+  updateApoioField();
+  document.getElementById('overlay').classList.add('show');
+  document.getElementById('in-titulo').focus();
+}
+
+function closeModal(){
+  document.getElementById('overlay').classList.remove('show');
+}
+
+// listener do botão de adicionar é definido dinamicamente em switchTab()
+document.getElementById('btn-cancel').addEventListener('click', closeModal);
+document.getElementById('in-precisa-apoio').addEventListener('change', updateApoioField);
+
+function updateApoioField(){
+  const show = document.getElementById('in-precisa-apoio').value === 'sim';
+  document.getElementById('field-falar-com').style.display = show ? 'block' : 'none';
+}
+document.getElementById('overlay').addEventListener('click', e=>{
+  if(e.target.id === 'overlay') closeModal();
+});
+
+document.getElementById('btn-save').addEventListener('click', ()=>{
+  const titulo = document.getElementById('in-titulo').value.trim();
+  if(!titulo){
+    document.getElementById('in-titulo').focus();
+    return;
+  }
+  const id = document.getElementById('edit-id').value;
+  const descricao = document.getElementById('in-descricao').value.trim();
+  const empresa = document.getElementById('in-empresa').value;
+  const solicitante = document.getElementById('in-solicitante').value.trim();
+  const tipo = document.getElementById('in-tipo').value;
+  const prioridade = document.getElementById('in-prioridade').value;
+  const prazo = document.getElementById('in-prazo').value;
+  const precisaApoio = document.getElementById('in-precisa-apoio').value;
+  const falarCom = document.getElementById('in-falar-com').value.trim();
+
+  if(id){
+    const d = demandas.find(x=>x.id===id);
+    if(d){
+      d.titulo = titulo; d.descricao = descricao; d.empresa = empresa; d.solicitante = solicitante; d.tipo = tipo;
+      d.prioridade = prioridade; d.prazo = prazo; d.precisaApoio = precisaApoio; d.falarCom = falarCom;
+    }
+  } else {
+    demandas.push({
+      id: uid(),
+      titulo, descricao, empresa, solicitante, tipo, prioridade, prazo, precisaApoio, falarCom,
+      status: 'fila'
+    });
+  }
+  closeModal();
+  render();
+  saveData();
+});
+
+['f-search','f-tipo','f-prioridade','f-empresa'].forEach(id=>{
+  document.getElementById(id).addEventListener('input', render);
+  document.getElementById(id).addEventListener('change', render);
+});
+
+/* ---------- Abas ---------- */
+document.getElementById('tab-demandas').addEventListener('click', ()=> switchTab('demandas'));
+document.getElementById('tab-financeiro').addEventListener('click', ()=> switchTab('financeiro'));
+
+function switchTab(tab){
+  const isDem = tab === 'demandas';
+  document.getElementById('tab-demandas').classList.toggle('active', isDem);
+  document.getElementById('tab-financeiro').classList.toggle('active', !isDem);
+  document.getElementById('view-demandas').style.display = isDem ? 'block' : 'none';
+  document.getElementById('view-financeiro').style.display = isDem ? 'none' : 'block';
+  document.getElementById('page-title').textContent = isDem ? 'Painel de Demandas' : 'Financeiro';
+  const btn = document.getElementById('btn-open-modal');
+  btn.textContent = isDem ? '+ Nova demanda' : '+ Novo pagamento';
+  btn.onclick = isDem ? ()=>openModal(null) : ()=>openFinModal(null);
+  if(isDem) render(); else renderFin();
+}
+
+/* ---------- Financeiro ---------- */
+const STATUS_FIN = [
+  {key:'apagar', label:'A pagar'},
+  {key:'pago', label:'Pago'}
+];
+const FIN_STORAGE_KEY = 'pagamentos-marketing';
+let pagamentos = [];
+
+async function loadFinData(){
+  try{
+    const rows = await apiGet('Financeiro');
+    pagamentos = rows.map(p => ({
+      ...p,
+      vencimento: normalizeDateField(p.vencimento)
+    }));
+  }catch(e){
+    console.error('Erro ao carregar pagamentos', e);
+    pagamentos = [];
+    document.getElementById('board-fin').innerHTML = '<div class="loading-msg">Não foi possível conectar à planilha. Verifique sua internet e tente recarregar a página.</div>';
+  }
+}
+
+async function saveFinData(){
+  try{
+    await apiSave('Financeiro', pagamentos);
+  }catch(e){
+    console.error('Erro ao salvar pagamento', e);
+  }
+}
+
+function formatBRL(valor){
+  const n = Number(valor) || 0;
+  return 'R$ ' + n.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
+}
+
+function renderFin(){
+  const search = document.getElementById('ff-search').value.trim().toLowerCase();
+  const fTipo = document.getElementById('ff-tipo').value;
+  const fPrio = document.getElementById('ff-prioridade').value;
+  const fEmpresa = document.getElementById('ff-empresa').value;
+
+  const filtered = pagamentos.filter(p=>{
+    if(fTipo && p.tipo !== fTipo) return false;
+    if(fPrio && p.prioridade !== fPrio) return false;
+    if(fEmpresa && p.empresa !== fEmpresa) return false;
+    if(search && !p.descricao.toLowerCase().includes(search)) return false;
+    return true;
+  });
+
+  const totalAPagar = pagamentos.filter(p=>p.status==='apagar').reduce((s,p)=>s+(Number(p.valor)||0),0);
+  document.getElementById('sub-info').textContent = `${pagamentos.length} pagamento${pagamentos.length===1?'':'s'} · ${formatBRL(totalAPagar)} a pagar`;
+
+  const board = document.getElementById('board-fin');
+  board.innerHTML = '';
+
+  STATUS_FIN.forEach((st, colIdx)=>{
+    const col = document.createElement('div');
+    col.className = 'column';
+    col.dataset.status = st.key;
+
+    const items = filtered.filter(p=>p.status===st.key);
+
+    col.innerHTML = `
+      <div class="column-head">
+        <h2>${st.label}</h2>
+        <span class="count-badge">${items.length}</span>
+      </div>
+      <div class="cards"></div>
+    `;
+
+    const cardsEl = col.querySelector('.cards');
+    if(items.length === 0){
+      const empty = document.createElement('div');
+      empty.className = 'empty-col';
+      empty.textContent = 'Nenhum pagamento aqui';
+      cardsEl.appendChild(empty);
+    } else {
+      const EMPRESA_ORDER = ['Lotus','Flora Brasil','Novo Ciclo'];
+      const groups = {};
+      items.forEach(p=>{
+        const key = p.empresa || 'Sem empresa';
+        (groups[key] = groups[key] || []).push(p);
+      });
+      const orderedKeys = [
+        ...EMPRESA_ORDER.filter(k=>groups[k]),
+        ...Object.keys(groups).filter(k=>!EMPRESA_ORDER.includes(k))
+      ];
+      orderedKeys.forEach(key=>{
+        const groupHead = document.createElement('div');
+        groupHead.className = `group-head ${empresaClass(key)}`;
+        groupHead.innerHTML = `<span class="dot"></span>${escapeHtml(key)} <span class="g-count">(${groups[key].length})</span>`;
+        cardsEl.appendChild(groupHead);
+        groups[key].forEach(p=>{
+          cardsEl.appendChild(buildFinCard(p, colIdx));
+        });
+      });
+    }
+
+    col.addEventListener('dragover', e=>{ e.preventDefault(); col.classList.add('drag-over'); });
+    col.addEventListener('dragleave', ()=> col.classList.remove('drag-over'));
+    col.addEventListener('drop', e=>{
+      e.preventDefault();
+      col.classList.remove('drag-over');
+      const id = e.dataTransfer.getData('text/plain');
+      moveFinCard(id, st.key);
+    });
+
+    board.appendChild(col);
+  });
+}
+
+function buildFinCard(p, colIdx){
+  const card = document.createElement('div');
+  card.className = `card p-${p.prioridade}`;
+  card.draggable = true;
+  card.dataset.id = p.id;
+
+  card.addEventListener('dragstart', e=>{
+    e.dataTransfer.setData('text/plain', p.id);
+  });
+
+  let dueClass = '';
+  let dueLabel = fmtDate(p.vencimento);
+  if(p.vencimento){
+    const diff = daysUntil(p.vencimento);
+    if(diff < 0 && p.status !== 'pago'){ dueClass='due-late'; dueLabel = `vencido (${fmtDate(p.vencimento)})`; }
+    else if(diff <= 2 && p.status !== 'pago'){ dueClass='due-soon'; dueLabel = `${fmtDate(p.vencimento)} (em breve)`; }
+  }
+
+  card.innerHTML = `
+    <div class="tag">${p.tipo}</div>
+    <div class="card-title">${escapeHtml(p.descricao)}</div>
+    <div class="card-valor">${formatBRL(p.valor)}</div>
+    <div class="nf-badge ${p.notaFiscal === 'sim' ? 'emitida' : 'pendente'}">${p.notaFiscal === 'sim' ? '📄 Nota fiscal emitida' : '📄 Nota fiscal pendente'}</div>
+    <div class="card-meta">
+      <span class="${dueClass}">${dueLabel}</span>
+      <span>${prioridadeLabel(p.prioridade)}</span>
+    </div>
+    <div class="card-actions">
+      <div class="move-btns">
+        <button class="move-left" title="Mover para trás" ${colIdx===0?'disabled':''}>&#8592;</button>
+        <button class="move-right" title="Mover para frente" ${colIdx===STATUS_FIN.length-1?'disabled':''}>&#8594;</button>
+      </div>
+      <div>
+        <button class="icon-btn btn-edit" title="Editar">Editar</button>
+        <button class="icon-btn btn-delete" title="Excluir">Excluir</button>
+      </div>
+    </div>
+  `;
+
+  card.querySelector('.move-left').addEventListener('click', ()=>{
+    if(colIdx>0) moveFinCard(p.id, STATUS_FIN[colIdx-1].key);
+  });
+  card.querySelector('.move-right').addEventListener('click', ()=>{
+    if(colIdx<STATUS_FIN.length-1) moveFinCard(p.id, STATUS_FIN[colIdx+1].key);
+  });
+  card.querySelector('.btn-edit').addEventListener('click', ()=> openFinModal(p));
+  card.querySelector('.btn-delete').addEventListener('click', ()=> deleteFinCard(p.id));
+
+  return card;
+}
+
+function moveFinCard(id, newStatus){
+  const p = pagamentos.find(x=>x.id===id);
+  if(!p) return;
+  p.status = newStatus;
+  renderFin();
+  saveFinData();
+}
+
+function deleteFinCard(id){
+  pagamentos = pagamentos.filter(x=>x.id!==id);
+  renderFin();
+  saveFinData();
+}
+
+function openFinModal(p){
+  document.getElementById('modal-title-fin').textContent = p ? 'Editar pagamento' : 'Novo pagamento';
+  document.getElementById('fin-edit-id').value = p ? p.id : '';
+  document.getElementById('fin-descricao').value = p ? p.descricao : '';
+  document.getElementById('fin-empresa').value = p ? p.empresa : 'Lotus';
+  document.getElementById('fin-tipo').value = p ? p.tipo : 'Mídia/Anúncio';
+  document.getElementById('fin-valor').value = p ? p.valor : '';
+  document.getElementById('fin-prioridade').value = p ? p.prioridade : 'media';
+  document.getElementById('fin-vencimento').value = p ? p.vencimento : '';
+  document.getElementById('fin-nota-fiscal').value = p ? (p.notaFiscal || 'nao') : 'nao';
+  document.getElementById('overlay-fin').classList.add('show');
+  document.getElementById('fin-descricao').focus();
+}
+
+function closeFinModal(){
+  document.getElementById('overlay-fin').classList.remove('show');
+}
+
+document.getElementById('fin-btn-cancel').addEventListener('click', closeFinModal);
+document.getElementById('overlay-fin').addEventListener('click', e=>{
+  if(e.target.id === 'overlay-fin') closeFinModal();
+});
+
+document.getElementById('fin-btn-save').addEventListener('click', ()=>{
+  const descricao = document.getElementById('fin-descricao').value.trim();
+  if(!descricao){
+    document.getElementById('fin-descricao').focus();
+    return;
+  }
+  const id = document.getElementById('fin-edit-id').value;
+  const empresa = document.getElementById('fin-empresa').value;
+  const tipo = document.getElementById('fin-tipo').value;
+  const valor = document.getElementById('fin-valor').value;
+  const prioridade = document.getElementById('fin-prioridade').value;
+  const vencimento = document.getElementById('fin-vencimento').value;
+  const notaFiscal = document.getElementById('fin-nota-fiscal').value;
+
+  if(id){
+    const p = pagamentos.find(x=>x.id===id);
+    if(p){
+      p.descricao = descricao; p.empresa = empresa; p.tipo = tipo;
+      p.valor = valor; p.prioridade = prioridade; p.vencimento = vencimento; p.notaFiscal = notaFiscal;
+    }
+  } else {
+    pagamentos.push({
+      id: uid(),
+      descricao, empresa, tipo, valor, prioridade, vencimento, notaFiscal,
+      status: 'apagar'
+    });
+  }
+  closeFinModal();
+  renderFin();
+  saveFinData();
+});
+
+['ff-search','ff-tipo','ff-prioridade','ff-empresa'].forEach(id=>{
+  document.getElementById(id).addEventListener('input', renderFin);
+  document.getElementById(id).addEventListener('change', renderFin);
+});
+
+async function initAll(){
+  await loadData();
+  await loadFinData();
+  switchTab('demandas');
+}
+initAll();
+</script>
+</body>
+</html>
