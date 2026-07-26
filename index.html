@@ -242,6 +242,7 @@ document.getElementById('overlay-senha').addEventListener('click', e=>{
 function tentarEntrar(){
   const valor = document.getElementById('input-senha').value.trim();
   if(valor === SENHAS[clienteAtual]){
+    sessionStorage.setItem('acesso_' + clienteAtual, 'ok');
     window.location.href = DESTINOS[clienteAtual];
   } else {
     document.getElementById('erro-senha').textContent = 'Senha incorreta. Tente novamente.';
