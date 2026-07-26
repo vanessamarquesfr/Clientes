@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <title>Painel de Demandas</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600;1,9..144,500&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
 
@@ -544,6 +545,108 @@ body{
   font-weight:600;
 }
 
+.resultados-list{
+  display:grid;
+  grid-template-columns:repeat(auto-fill, minmax(280px, 1fr));
+  gap:14px;
+}
+.res-card{
+  background:var(--paper);
+  color:var(--text-on-paper);
+  border-radius:6px;
+  padding:16px;
+  position:relative;
+}
+.res-card .tag{
+  position:absolute;
+  top:-8px;
+  right:12px;
+  transform:rotate(-3deg);
+  background:var(--ink);
+  color:var(--paper);
+  font-family:'IBM Plex Mono',monospace;
+  font-size:10px;
+  padding:3px 8px;
+  border-radius:2px;
+  box-shadow:0 2px 3px rgba(0,0,0,0.25);
+}
+.res-card-title{
+  font-family:'Fraunces',serif;
+  font-weight:600;
+  font-size:15px;
+  margin:2px 0 3px;
+  padding-right:60px;
+}
+.res-card-sub{
+  font-size:11.5px;
+  color:var(--text-muted-on-paper);
+  margin-bottom:12px;
+}
+.res-kpis{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:8px 12px;
+  border-top:1px solid rgba(28,36,48,0.1);
+  padding-top:10px;
+  margin-bottom:10px;
+}
+.res-kpi-label{
+  font-family:'IBM Plex Mono',monospace;
+  font-size:10px;
+  text-transform:uppercase;
+  color:var(--text-muted-on-paper);
+  letter-spacing:0.3px;
+}
+.res-kpi-valor{
+  font-family:'IBM Plex Mono',monospace;
+  font-weight:700;
+  font-size:14px;
+}
+.res-kpi-valor.roi-pos{color:#1f6b52;}
+.res-kpi-valor.roi-neg{color:var(--ember);}
+.res-card-actions{
+  display:flex;
+  justify-content:flex-end;
+  gap:6px;
+}
+
+.import-bar{
+  margin-bottom:18px;
+}
+.modal-wide{
+  max-width:560px;
+}
+.import-hint{
+  font-size:12px;
+  color:var(--text-muted-on-paper);
+  margin:4px 0 14px;
+  line-height:1.4;
+}
+.import-preview{
+  margin-top:14px;
+  max-height:220px;
+  overflow-y:auto;
+  border:1px solid rgba(28,36,48,0.15);
+  border-radius:4px;
+}
+.import-preview table{
+  width:100%;
+  border-collapse:collapse;
+  font-size:12px;
+}
+.import-preview th, .import-preview td{
+  text-align:left;
+  padding:6px 8px;
+  border-bottom:1px solid rgba(28,36,48,0.08);
+  white-space:nowrap;
+}
+.import-preview th{
+  background:rgba(28,36,48,0.05);
+  font-family:'IBM Plex Mono',monospace;
+  font-size:10.5px;
+  text-transform:uppercase;
+}
+
 </style>
 </head>
 <body>
@@ -559,6 +662,7 @@ body{
   <div class="tabs">
     <button class="tab-btn active" data-tab="demandas" id="tab-demandas">Demandas</button>
     <button class="tab-btn" data-tab="financeiro" id="tab-financeiro">Financeiro</button>
+    <button class="tab-btn" data-tab="resultados" id="tab-resultados">Resultados</button>
   </div>
 
   <div id="view-demandas">
@@ -628,6 +732,174 @@ body{
 
     <div class="board board-fin" id="board-fin">
       <div class="loading-msg">Carregando pagamentos...</div>
+    </div>
+  </div>
+
+  <div id="view-resultados" style="display:none;">
+    <div class="import-bar">
+      <button class="btn-secondary" id="btn-open-import">📄 Importar relatório (CSV do Meta ou TikTok)</button>
+    </div>
+    <div class="cat-summary" id="resultado-summary"></div>
+
+    <div class="filters">
+      <input type="text" id="rf-search" placeholder="Buscar por campanha...">
+      <select id="rf-plataforma">
+        <option value="">Todas as plataformas</option>
+        <option>Meta</option>
+        <option>Google</option>
+        <option>TikTok</option>
+        <option>Kwai</option>
+        <option>Outra</option>
+      </select>
+      <select id="rf-empresa">
+        <option value="">Todas as empresas</option>
+        <option>Lotus</option>
+        <option>Flora Brasil</option>
+        <option>Novo Ciclo</option>
+      </select>
+    </div>
+
+    <div class="resultados-list" id="resultados-list">
+      <div class="loading-msg">Carregando resultados...</div>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="overlay-res">
+  <div class="modal">
+    <h3 id="modal-title-res">Novo resultado</h3>
+    <input type="hidden" id="res-edit-id">
+    <div class="field">
+      <label>Tipo de registro</label>
+      <select id="res-tipo-registro">
+        <option value="mensal">Resumo mensal</option>
+        <option value="campanha">Campanha específica</option>
+      </select>
+    </div>
+    <div class="field" id="res-field-mes">
+      <label>Mês de referência</label>
+      <input type="month" id="res-mes">
+    </div>
+    <div class="field" id="res-field-nome-campanha" style="display:none;">
+      <label>Nome da campanha</label>
+      <input type="text" id="res-nome-campanha" placeholder="Ex: Promoção Dia das Mães">
+    </div>
+    <div class="field-row" id="res-field-datas-campanha" style="display:none;">
+      <div class="field">
+        <label>Data início</label>
+        <input type="date" id="res-data-inicio">
+      </div>
+      <div class="field">
+        <label>Data fim</label>
+        <input type="date" id="res-data-fim">
+      </div>
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label>Empresa</label>
+        <select id="res-empresa">
+          <option>Lotus</option>
+          <option>Flora Brasil</option>
+          <option>Novo Ciclo</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Plataforma</label>
+        <select id="res-plataforma">
+          <option>Meta</option>
+          <option>Google</option>
+          <option>TikTok</option>
+          <option>Kwai</option>
+          <option>Outra</option>
+        </select>
+      </div>
+    </div>
+    <div class="field">
+      <label>Investimento (R$)</label>
+      <input type="number" id="res-investimento" step="0.01" min="0" placeholder="0,00">
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label>Leads gerados</label>
+        <input type="number" id="res-leads" step="1" min="0" placeholder="0">
+      </div>
+      <div class="field">
+        <label>Conversões (opcional)</label>
+        <input type="number" id="res-conversoes" step="1" min="0" placeholder="0">
+      </div>
+    </div>
+    <div class="field">
+      <label>Receita gerada em R$ (opcional — usado para calcular o ROI)</label>
+      <input type="number" id="res-receita" step="0.01" min="0" placeholder="0,00">
+    </div>
+    <div class="modal-actions">
+      <button class="btn-secondary" id="res-btn-cancel">Cancelar</button>
+      <button class="btn-primary" id="res-btn-save">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="overlay-import">
+  <div class="modal modal-wide">
+    <h3>Importar relatório</h3>
+    <div id="import-step-upload">
+      <div class="field-row">
+        <div class="field">
+          <label>Plataforma do relatório</label>
+          <select id="import-plataforma">
+            <option>Meta</option>
+            <option>TikTok</option>
+            <option>Google</option>
+            <option>Kwai</option>
+            <option>Outra</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Empresa</label>
+          <select id="import-empresa">
+            <option>Lotus</option>
+            <option>Flora Brasil</option>
+            <option>Novo Ciclo</option>
+          </select>
+        </div>
+      </div>
+      <div class="field">
+        <label>Arquivo CSV exportado (Meta Ads Manager / TikTok Ads Manager)</label>
+        <input type="file" id="import-file" accept=".csv">
+      </div>
+      <p class="import-hint">No Gerenciador de Anúncios, selecione o período desejado e clique em "Exportar" → CSV. Suba o arquivo aqui sem editar.</p>
+    </div>
+
+    <div id="import-step-mapping" style="display:none;">
+      <p class="import-hint">Confira se identifiquei as colunas certas do seu arquivo. Ajuste se precisar.</p>
+      <div class="field">
+        <label>Coluna com o nome da campanha</label>
+        <select id="map-campanha"></select>
+      </div>
+      <div class="field">
+        <label>Coluna com o valor gasto</label>
+        <select id="map-gasto"></select>
+      </div>
+      <div class="field">
+        <label>Coluna com leads/resultados</label>
+        <select id="map-leads"></select>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>Coluna com data de início (opcional)</label>
+          <select id="map-data-inicio"></select>
+        </div>
+        <div class="field">
+          <label>Coluna com data de fim (opcional)</label>
+          <select id="map-data-fim"></select>
+        </div>
+      </div>
+      <div id="import-preview" class="import-preview"></div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn-secondary" id="import-btn-cancel">Cancelar</button>
+      <button class="btn-primary" id="import-btn-confirm" style="display:none;">Importar campanhas</button>
     </div>
   </div>
 </div>
@@ -1239,18 +1511,28 @@ document.getElementById('btn-save').addEventListener('click', async ()=>{
 /* ---------- Abas ---------- */
 document.getElementById('tab-demandas').addEventListener('click', ()=> switchTab('demandas'));
 document.getElementById('tab-financeiro').addEventListener('click', ()=> switchTab('financeiro'));
+document.getElementById('tab-resultados').addEventListener('click', ()=> switchTab('resultados'));
 
 function switchTab(tab){
-  const isDem = tab === 'demandas';
-  document.getElementById('tab-demandas').classList.toggle('active', isDem);
-  document.getElementById('tab-financeiro').classList.toggle('active', !isDem);
-  document.getElementById('view-demandas').style.display = isDem ? 'block' : 'none';
-  document.getElementById('view-financeiro').style.display = isDem ? 'none' : 'block';
-  document.getElementById('page-title').textContent = isDem ? 'Painel de Demandas' : 'Financeiro';
+  document.getElementById('tab-demandas').classList.toggle('active', tab==='demandas');
+  document.getElementById('tab-financeiro').classList.toggle('active', tab==='financeiro');
+  document.getElementById('tab-resultados').classList.toggle('active', tab==='resultados');
+  document.getElementById('view-demandas').style.display = tab==='demandas' ? 'block' : 'none';
+  document.getElementById('view-financeiro').style.display = tab==='financeiro' ? 'block' : 'none';
+  document.getElementById('view-resultados').style.display = tab==='resultados' ? 'block' : 'none';
+
+  const titles = {demandas:'Painel de Demandas', financeiro:'Financeiro', resultados:'Resultados de Mídia Paga'};
+  document.getElementById('page-title').textContent = titles[tab];
+
   const btn = document.getElementById('btn-open-modal');
-  btn.textContent = isDem ? '+ Nova demanda' : '+ Novo pagamento';
-  btn.onclick = isDem ? ()=>openModal(null) : ()=>openFinModal(null);
-  if(isDem) render(); else renderFin();
+  const btnLabels = {demandas:'+ Nova demanda', financeiro:'+ Novo pagamento', resultados:'+ Novo resultado'};
+  btn.textContent = btnLabels[tab];
+  const openers = {demandas:()=>openModal(null), financeiro:()=>openFinModal(null), resultados:()=>openResModal(null)};
+  btn.onclick = openers[tab];
+
+  if(tab==='demandas') render();
+  else if(tab==='financeiro') renderFin();
+  else renderResultados();
 }
 
 /* ---------- Financeiro ---------- */
@@ -1545,12 +1827,425 @@ document.getElementById('fin-btn-save').addEventListener('click', async ()=>{
   document.getElementById(id).addEventListener('change', renderFin);
 });
 
+/* ---------- Resultados de Mídia Paga ---------- */
+let resultados = [];
+
+async function loadResultados(){
+  try{
+    const rows = await apiGet('Resultados');
+    resultados = rows.map(r => ({
+      ...r,
+      mesReferencia: r.mesReferencia || '',
+      dataInicio: normalizeDateField(r.dataInicio),
+      dataFim: normalizeDateField(r.dataFim)
+    }));
+  }catch(e){
+    console.error('Erro ao carregar resultados', e);
+    resultados = [];
+    document.getElementById('resultados-list').innerHTML = '<div class="loading-msg">Não foi possível conectar à planilha. Verifique se a aba "Resultados" existe e tente recarregar.</div>';
+  }
+}
+
+async function saveResultados(){
+  try{
+    await apiSave('Resultados', resultados);
+  }catch(e){
+    console.error('Erro ao salvar resultado', e);
+  }
+}
+
+function calcKpis(r){
+  const investimento = Number(r.investimento) || 0;
+  const leads = Number(r.leads) || 0;
+  const conversoes = Number(r.conversoes) || 0;
+  const receita = Number(r.receita) || 0;
+  const cpl = leads > 0 ? investimento / leads : null;
+  const taxaConversao = (leads > 0 && conversoes > 0) ? (conversoes / leads) * 100 : null;
+  const cac = conversoes > 0 ? investimento / conversoes : null;
+  const roi = receita > 0 ? ((receita - investimento) / investimento) * 100 : null;
+  return {cpl, taxaConversao, cac, roi};
+}
+
+function resDateKey(r){
+  return r.tipoRegistro === 'campanha' ? (r.dataInicio || '') : (r.mesReferencia ? r.mesReferencia + '-01' : '');
+}
+
+function resLabel(r){
+  if(r.tipoRegistro === 'campanha') return r.nomeCampanha || 'Campanha sem nome';
+  return r.mesReferencia ? monthLabelFromKey(r.mesReferencia) : 'Sem data';
+}
+
+function resSubLabel(r){
+  if(r.tipoRegistro === 'campanha'){
+    const ini = r.dataInicio ? fmtDate(r.dataInicio) : '?';
+    const fim = r.dataFim ? fmtDate(r.dataFim) : '?';
+    return `Campanha · ${ini} a ${fim}`;
+  }
+  return 'Resumo mensal';
+}
+
+function renderResultados(){
+  const search = document.getElementById('rf-search').value.trim().toLowerCase();
+  const fPlat = document.getElementById('rf-plataforma').value;
+  const fEmpresa = document.getElementById('rf-empresa').value;
+
+  const filtered = resultados.filter(r=>{
+    if(fPlat && r.plataforma !== fPlat) return false;
+    if(fEmpresa && r.empresa !== fEmpresa) return false;
+    if(search && !resLabel(r).toLowerCase().includes(search)) return false;
+    return true;
+  });
+
+  renderResSummary(filtered);
+
+  const list = document.getElementById('resultados-list');
+  list.innerHTML = '';
+
+  if(filtered.length === 0){
+    list.innerHTML = '<div class="loading-msg">Nenhum resultado lançado ainda. Clique em "+ Novo resultado" para começar.</div>';
+    return;
+  }
+
+  const sorted = [...filtered].sort((a,b)=> resDateKey(b).localeCompare(resDateKey(a)));
+  sorted.forEach(r=>{
+    list.appendChild(buildResCard(r));
+  });
+}
+
+function renderResSummary(items){
+  const PLATAFORMAS = ['Meta','Google','TikTok','Kwai','Outra'];
+  const el = document.getElementById('resultado-summary');
+  el.innerHTML = '';
+
+  const totalInvest = items.reduce((s,r)=>s+(Number(r.investimento)||0),0);
+  const totalLeads = items.reduce((s,r)=>s+(Number(r.leads)||0),0);
+  const totalReceita = items.reduce((s,r)=>s+(Number(r.receita)||0),0);
+  const cplGeral = totalLeads > 0 ? totalInvest/totalLeads : null;
+  const roiGeral = totalReceita > 0 ? ((totalReceita-totalInvest)/totalInvest)*100 : null;
+
+  const chipGeral = document.createElement('div');
+  chipGeral.className = 'cat-chip-media';
+  chipGeral.innerHTML = `
+    <div class="cat-label">Visão geral</div>
+    <div class="cat-valor">${formatBRL(totalInvest)} investido</div>
+    <div class="media-breakdown">
+      <div class="media-breakdown-row"><span class="plat-nome">Leads gerados</span><span class="plat-valor">${totalLeads}</span></div>
+      <div class="media-breakdown-row"><span class="plat-nome">Custo por lead</span><span class="plat-valor">${cplGeral!==null ? formatBRL(cplGeral) : '—'}</span></div>
+      <div class="media-breakdown-row"><span class="plat-nome">ROI</span><span class="plat-valor">${roiGeral!==null ? roiGeral.toFixed(0)+'%' : '—'}</span></div>
+    </div>
+  `;
+  el.appendChild(chipGeral);
+
+  PLATAFORMAS.forEach(plat=>{
+    const platItems = items.filter(r=>r.plataforma===plat);
+    if(platItems.length === 0) return;
+    const invest = platItems.reduce((s,r)=>s+(Number(r.investimento)||0),0);
+    const leads = platItems.reduce((s,r)=>s+(Number(r.leads)||0),0);
+    const cpl = leads > 0 ? invest/leads : null;
+    const chip = document.createElement('div');
+    chip.className = 'cat-chip';
+    chip.innerHTML = `<div class="cat-label">${escapeHtml(plat)}</div><div class="cat-valor">${formatBRL(invest)}</div><div style="font-size:11px;color:var(--text-muted-on-paper,var(--mist));margin-top:4px;">${leads} leads ${cpl!==null ? '· CPL ' + formatBRL(cpl) : ''}</div>`;
+    el.appendChild(chip);
+  });
+}
+
+function buildResCard(r){
+  const card = document.createElement('div');
+  card.className = 'res-card';
+  const kpis = calcKpis(r);
+
+  card.innerHTML = `
+    <div class="tag">${escapeHtml(r.plataforma)}</div>
+    <div class="res-card-title">${escapeHtml(resLabel(r))}</div>
+    <div class="res-card-sub">${escapeHtml(r.empresa || '')} · ${resSubLabel(r)}</div>
+    <div class="res-kpis">
+      <div><div class="res-kpi-label">Investimento</div><div class="res-kpi-valor">${formatBRL(r.investimento)}</div></div>
+      <div><div class="res-kpi-label">Leads</div><div class="res-kpi-valor">${Number(r.leads)||0}</div></div>
+      <div><div class="res-kpi-label">Custo/Lead</div><div class="res-kpi-valor">${kpis.cpl!==null ? formatBRL(kpis.cpl) : '—'}</div></div>
+      <div><div class="res-kpi-label">Conversões</div><div class="res-kpi-valor">${r.conversoes || 0}</div></div>
+      <div><div class="res-kpi-label">Tx. Conversão</div><div class="res-kpi-valor">${kpis.taxaConversao!==null ? kpis.taxaConversao.toFixed(1)+'%' : '—'}</div></div>
+      <div><div class="res-kpi-label">ROI</div><div class="res-kpi-valor ${kpis.roi!==null ? (kpis.roi>=0?'roi-pos':'roi-neg') : ''}">${kpis.roi!==null ? kpis.roi.toFixed(0)+'%' : '—'}</div></div>
+    </div>
+    <div class="res-card-actions">
+      <button class="icon-btn btn-edit">Editar</button>
+      <button class="icon-btn btn-delete">Excluir</button>
+    </div>
+  `;
+
+  card.querySelector('.btn-edit').addEventListener('click', ()=> openResModal(r));
+  card.querySelector('.btn-delete').addEventListener('click', ()=> deleteResCard(r.id));
+
+  return card;
+}
+
+function deleteResCard(id){
+  resultados = resultados.filter(x=>x.id!==id);
+  renderResultados();
+  saveResultados();
+}
+
+function updateResTipoFields(){
+  const tipo = document.getElementById('res-tipo-registro').value;
+  document.getElementById('res-field-mes').style.display = tipo === 'mensal' ? 'block' : 'none';
+  document.getElementById('res-field-nome-campanha').style.display = tipo === 'campanha' ? 'block' : 'none';
+  document.getElementById('res-field-datas-campanha').style.display = tipo === 'campanha' ? 'flex' : 'none';
+}
+
+document.getElementById('res-tipo-registro').addEventListener('change', updateResTipoFields);
+
+function openResModal(r){
+  document.getElementById('modal-title-res').textContent = r ? 'Editar resultado' : 'Novo resultado';
+  document.getElementById('res-edit-id').value = r ? r.id : '';
+  document.getElementById('res-tipo-registro').value = r ? (r.tipoRegistro || 'mensal') : 'mensal';
+  document.getElementById('res-mes').value = r ? (r.mesReferencia || '') : '';
+  document.getElementById('res-nome-campanha').value = r ? (r.nomeCampanha || '') : '';
+  document.getElementById('res-data-inicio').value = r ? (r.dataInicio || '') : '';
+  document.getElementById('res-data-fim').value = r ? (r.dataFim || '') : '';
+  document.getElementById('res-empresa').value = r ? r.empresa : 'Lotus';
+  document.getElementById('res-plataforma').value = r ? r.plataforma : 'Meta';
+  document.getElementById('res-investimento').value = r ? r.investimento : '';
+  document.getElementById('res-leads').value = r ? r.leads : '';
+  document.getElementById('res-conversoes').value = r ? (r.conversoes || '') : '';
+  document.getElementById('res-receita').value = r ? (r.receita || '') : '';
+  updateResTipoFields();
+  document.getElementById('overlay-res').classList.add('show');
+}
+
+function closeResModal(){
+  document.getElementById('overlay-res').classList.remove('show');
+}
+
+document.getElementById('res-btn-cancel').addEventListener('click', closeResModal);
+document.getElementById('overlay-res').addEventListener('click', e=>{
+  if(e.target.id === 'overlay-res') closeResModal();
+});
+
+document.getElementById('res-btn-save').addEventListener('click', ()=>{
+  const tipoRegistro = document.getElementById('res-tipo-registro').value;
+  const mesReferencia = document.getElementById('res-mes').value;
+  const nomeCampanha = document.getElementById('res-nome-campanha').value.trim();
+
+  if(tipoRegistro === 'mensal' && !mesReferencia){
+    document.getElementById('res-mes').focus();
+    return;
+  }
+  if(tipoRegistro === 'campanha' && !nomeCampanha){
+    document.getElementById('res-nome-campanha').focus();
+    return;
+  }
+
+  const id = document.getElementById('res-edit-id').value;
+  const dataInicio = document.getElementById('res-data-inicio').value;
+  const dataFim = document.getElementById('res-data-fim').value;
+  const empresa = document.getElementById('res-empresa').value;
+  const plataforma = document.getElementById('res-plataforma').value;
+  const investimento = document.getElementById('res-investimento').value;
+  const leads = document.getElementById('res-leads').value;
+  const conversoes = document.getElementById('res-conversoes').value;
+  const receita = document.getElementById('res-receita').value;
+
+  if(id){
+    const r = resultados.find(x=>x.id===id);
+    if(r){
+      r.tipoRegistro = tipoRegistro; r.mesReferencia = mesReferencia; r.nomeCampanha = nomeCampanha;
+      r.dataInicio = dataInicio; r.dataFim = dataFim; r.empresa = empresa; r.plataforma = plataforma;
+      r.investimento = investimento; r.leads = leads; r.conversoes = conversoes; r.receita = receita;
+    }
+  } else {
+    resultados.push({
+      id: uid(),
+      tipoRegistro, mesReferencia, nomeCampanha, dataInicio, dataFim,
+      empresa, plataforma, investimento, leads, conversoes, receita
+    });
+  }
+  closeResModal();
+  renderResultados();
+  saveResultados();
+});
+
+['rf-search','rf-plataforma','rf-empresa'].forEach(id=>{
+  document.getElementById(id).addEventListener('input', renderResultados);
+  document.getElementById(id).addEventListener('change', renderResultados);
+});
+
 async function initAll(){
   await loadData();
   await loadFinData();
+  await loadResultados();
   switchTab('demandas');
 }
 initAll();
+
+/* ---------- Importação de relatório CSV ---------- */
+let csvHeaders = [];
+let csvRows = [];
+
+const ALIASES = {
+  campanha: ['campaign name','nome da campanha','campanha','ad name','nome do anúncio','ad set name','nome do conjunto de anúncios'],
+  gasto: ['amount spent (brl)','amount spent (usd)','amount spent','valor usado (brl)','valor usado (usd)','valor usado','valor gasto','cost','custo','gasto'],
+  leads: ['results','resultados','leads','conversions','conversões','result'],
+  dataInicio: ['reporting starts','início do relatório','data de início','start date','data inicial'],
+  dataFim: ['reporting ends','término do relatório','data de término','end date','data final']
+};
+
+function findBestColumn(headers, aliasList){
+  const lowerHeaders = headers.map(h=>h.toLowerCase().trim());
+  for(const alias of aliasList){
+    const idx = lowerHeaders.findIndex(h=>h===alias);
+    if(idx>-1) return headers[idx];
+  }
+  for(const alias of aliasList){
+    const idx = lowerHeaders.findIndex(h=>h.includes(alias));
+    if(idx>-1) return headers[idx];
+  }
+  return '';
+}
+
+function parseNumeric(val){
+  if(val===undefined || val===null || val==='') return 0;
+  let s = String(val).trim();
+  s = s.replace(/[^\d,.-]/g,'');
+  if(s.includes(',') && s.includes('.')){
+    s = s.replace(/\./g,'').replace(',','.');
+  } else if(s.includes(',') && !s.includes('.')){
+    s = s.replace(',','.');
+  }
+  const n = parseFloat(s);
+  return isNaN(n) ? 0 : n;
+}
+
+function parseDateFlexible(val){
+  if(!val) return '';
+  const s = String(val).trim();
+  const iso = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if(iso) return `${iso[1]}-${iso[2]}-${iso[3]}`;
+  const br = s.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
+  if(br) return `${br[3]}-${br[2]}-${br[1]}`;
+  return '';
+}
+
+document.getElementById('btn-open-import').addEventListener('click', ()=>{
+  document.getElementById('import-step-upload').style.display = 'block';
+  document.getElementById('import-step-mapping').style.display = 'none';
+  document.getElementById('import-btn-confirm').style.display = 'none';
+  document.getElementById('import-file').value = '';
+  document.getElementById('overlay-import').classList.add('show');
+});
+
+document.getElementById('import-btn-cancel').addEventListener('click', ()=>{
+  document.getElementById('overlay-import').classList.remove('show');
+});
+document.getElementById('overlay-import').addEventListener('click', e=>{
+  if(e.target.id === 'overlay-import') document.getElementById('overlay-import').classList.remove('show');
+});
+
+document.getElementById('import-file').addEventListener('change', e=>{
+  const file = e.target.files[0];
+  if(!file) return;
+  Papa.parse(file, {
+    header: true,
+    skipEmptyLines: true,
+    complete: (result)=>{
+      csvHeaders = result.meta.fields || [];
+      csvRows = result.data;
+      if(csvRows.length === 0){
+        alert('Não encontrei linhas de dados nesse arquivo. Confira se exportou o relatório certo.');
+        return;
+      }
+      showMappingStep();
+    },
+    error: ()=>{
+      alert('Não consegui ler esse arquivo. Confira se é um CSV exportado do Gerenciador de Anúncios.');
+    }
+  });
+});
+
+function fillSelectWithHeaders(selectId, preselect){
+  const sel = document.getElementById(selectId);
+  sel.innerHTML = '<option value="">— nenhuma —</option>' + csvHeaders.map(h=>`<option value="${escapeHtml(h)}">${escapeHtml(h)}</option>`).join('');
+  if(preselect) sel.value = preselect;
+}
+
+function showMappingStep(){
+  document.getElementById('import-step-upload').style.display = 'none';
+  document.getElementById('import-step-mapping').style.display = 'block';
+  document.getElementById('import-btn-confirm').style.display = 'inline-block';
+
+  fillSelectWithHeaders('map-campanha', findBestColumn(csvHeaders, ALIASES.campanha));
+  fillSelectWithHeaders('map-gasto', findBestColumn(csvHeaders, ALIASES.gasto));
+  fillSelectWithHeaders('map-leads', findBestColumn(csvHeaders, ALIASES.leads));
+  fillSelectWithHeaders('map-data-inicio', findBestColumn(csvHeaders, ALIASES.dataInicio));
+  fillSelectWithHeaders('map-data-fim', findBestColumn(csvHeaders, ALIASES.dataFim));
+
+  renderImportPreview();
+  ['map-campanha','map-gasto','map-leads','map-data-inicio','map-data-fim'].forEach(id=>{
+    document.getElementById(id).addEventListener('change', renderImportPreview);
+  });
+}
+
+function renderImportPreview(){
+  const colCampanha = document.getElementById('map-campanha').value;
+  const colGasto = document.getElementById('map-gasto').value;
+  const colLeads = document.getElementById('map-leads').value;
+
+  const preview = document.getElementById('import-preview');
+  const rows = csvRows.slice(0, 8);
+  let html = '<table><thead><tr><th>Campanha</th><th>Gasto</th><th>Leads</th></tr></thead><tbody>';
+  rows.forEach(row=>{
+    const nome = colCampanha ? (row[colCampanha]||'') : '—';
+    const gasto = colGasto ? formatBRL(parseNumeric(row[colGasto])) : '—';
+    const leads = colLeads ? (row[colLeads]||'0') : '—';
+    html += `<tr><td>${escapeHtml(String(nome))}</td><td>${escapeHtml(String(gasto))}</td><td>${escapeHtml(String(leads))}</td></tr>`;
+  });
+  html += '</tbody></table>';
+  if(csvRows.length > 8){
+    html += `<div style="padding:6px 8px;color:var(--text-muted-on-paper);font-size:11px;">+ ${csvRows.length-8} linha(s) a mais serão importadas também</div>`;
+  }
+  preview.innerHTML = html;
+}
+
+document.getElementById('import-btn-confirm').addEventListener('click', async ()=>{
+  const colCampanha = document.getElementById('map-campanha').value;
+  const colGasto = document.getElementById('map-gasto').value;
+  const colLeads = document.getElementById('map-leads').value;
+  const colDataInicio = document.getElementById('map-data-inicio').value;
+  const colDataFim = document.getElementById('map-data-fim').value;
+
+  if(!colCampanha || !colGasto){
+    alert('Selecione ao menos a coluna de campanha e a de valor gasto.');
+    return;
+  }
+
+  const plataforma = document.getElementById('import-plataforma').value;
+  const empresa = document.getElementById('import-empresa').value;
+
+  let importados = 0;
+  csvRows.forEach(row=>{
+    const nomeCampanha = colCampanha ? String(row[colCampanha]||'').trim() : '';
+    if(!nomeCampanha) return;
+    const investimento = colGasto ? parseNumeric(row[colGasto]) : 0;
+    const leads = colLeads ? parseNumeric(row[colLeads]) : 0;
+    const dataInicio = colDataInicio ? parseDateFlexible(row[colDataInicio]) : '';
+    const dataFim = colDataFim ? parseDateFlexible(row[colDataFim]) : '';
+
+    resultados.push({
+      id: uid(),
+      tipoRegistro: 'campanha',
+      mesReferencia: '',
+      nomeCampanha,
+      dataInicio, dataFim,
+      empresa, plataforma,
+      investimento, leads,
+      conversoes: '', receita: ''
+    });
+    importados++;
+  });
+
+  document.getElementById('overlay-import').classList.remove('show');
+  renderResultados();
+  await saveResultados();
+  alert(`${importados} campanha(s) importada(s) com sucesso!`);
+});
 </script>
 </body>
 </html>
