@@ -1101,6 +1101,10 @@ body{
       <label>Receita gerada em R$ (opcional — usado para calcular o ROI)</label>
       <input type="number" id="res-receita" step="0.01" min="0" placeholder="0,00">
     </div>
+    <div class="field">
+      <label>Justificativa (opcional — se o gasto não bateu com o Financeiro)</label>
+      <textarea id="res-justificativa" rows="2" placeholder="Ex: cliente pagou parte do boleto em outra data..."></textarea>
+    </div>
     <div class="modal-actions">
       <button class="btn-secondary" id="res-btn-cancel">Cancelar</button>
       <button class="btn-primary" id="res-btn-save">Salvar</button>
@@ -1135,6 +1139,11 @@ body{
       <div class="field">
         <label>Arquivo CSV exportado (Meta Ads Manager / TikTok Ads Manager)</label>
         <input type="file" id="import-file" accept=".csv">
+      </div>
+      <div class="field">
+        <label>Mês de referência (usado se o arquivo não trouxer data)</label>
+        <input type="month" id="import-mes-referencia">
+        <div class="field-hint">Se o relatório já tiver colunas de data, elas são usadas normalmente. Esse mês é só um reforço para quando o arquivo não informa período.</div>
       </div>
       <p class="import-hint">No Gerenciador de Anúncios, selecione o período desejado e clique em "Exportar" → CSV. Suba o arquivo aqui sem editar.</p>
     </div>
@@ -2329,6 +2338,7 @@ function buildResCard(r){
       <div><div class="res-kpi-label">Tx. Conversão</div><div class="res-kpi-valor">${kpis.taxaConversao!==null ? kpis.taxaConversao.toFixed(1)+'%' : '—'}</div></div>
       <div><div class="res-kpi-label">ROI</div><div class="res-kpi-valor ${kpis.roi!==null ? (kpis.roi>=0?'roi-pos':'roi-neg') : ''}">${kpis.roi!==null ? kpis.roi.toFixed(0)+'%' : '—'}</div></div>
     </div>
+    ${r.justificativa ? `<div class="card-desc" style="background:rgba(28,36,24,0.06);padding:6px 8px;border-radius:4px;margin-bottom:10px;"><strong>Justificativa:</strong> ${escapeHtml(r.justificativa)}</div>` : ''}
     <div class="res-card-actions">
       <button class="icon-btn btn-edit">Editar</button>
       <button class="icon-btn btn-delete">Excluir</button>
@@ -2370,6 +2380,7 @@ function openResModal(r){
   document.getElementById('res-leads').value = r ? r.leads : '';
   document.getElementById('res-conversoes').value = r ? (r.conversoes || '') : '';
   document.getElementById('res-receita').value = r ? (r.receita || '') : '';
+  document.getElementById('res-justificativa').value = r ? (r.justificativa || '') : '';
   updateResTipoFields();
   document.getElementById('overlay-res').classList.add('show');
 }
@@ -2406,6 +2417,7 @@ document.getElementById('res-btn-save').addEventListener('click', ()=>{
   const leads = document.getElementById('res-leads').value;
   const conversoes = document.getElementById('res-conversoes').value;
   const receita = document.getElementById('res-receita').value;
+  const justificativa = document.getElementById('res-justificativa').value.trim();
 
   if(id){
     const r = resultados.find(x=>x.id===id);
@@ -2413,12 +2425,13 @@ document.getElementById('res-btn-save').addEventListener('click', ()=>{
       r.tipoRegistro = tipoRegistro; r.mesReferencia = mesReferencia; r.nomeCampanha = nomeCampanha;
       r.dataInicio = dataInicio; r.dataFim = dataFim; r.empresa = empresa; r.plataforma = plataforma;
       r.investimento = investimento; r.leads = leads; r.conversoes = conversoes; r.receita = receita;
+      r.justificativa = justificativa;
     }
   } else {
     resultados.push({
       id: uid(),
       tipoRegistro, mesReferencia, nomeCampanha, dataInicio, dataFim,
-      empresa, plataforma, investimento, leads, conversoes, receita
+      empresa, plataforma, investimento, leads, conversoes, receita, justificativa
     });
   }
   closeResModal();
@@ -2739,6 +2752,7 @@ document.getElementById('btn-open-import').addEventListener('click', ()=>{
   document.getElementById('import-btn-cancel').style.display = 'inline-block';
   document.getElementById('import-btn-fechar').style.display = 'none';
   document.getElementById('import-file').value = '';
+  document.getElementById('import-mes-referencia').value = new Date().toISOString().slice(0,7);
   document.getElementById('overlay-import').classList.add('show');
 });
 
@@ -2828,40 +2842,59 @@ document.getElementById('import-btn-confirm').addEventListener('click', async ()
 
   const plataforma = document.getElementById('import-plataforma').value;
   const empresa = document.getElementById('import-empresa').value;
+  const mesReforco = document.getElementById('import-mes-referencia').value; // formato YYYY-MM
 
   let importados = 0;
   let totalImportado = 0;
   let dataMin = '';
   let dataMax = '';
+  const idsImportados = [];
 
   csvRows.forEach(row=>{
     const nomeCampanha = colCampanha ? String(row[colCampanha]||'').trim() : '';
     if(!nomeCampanha) return;
     const investimento = colGasto ? parseNumeric(row[colGasto]) : 0;
     const leads = colLeads ? parseNumeric(row[colLeads]) : 0;
-    const dataInicio = colDataInicio ? parseDateFlexible(row[colDataInicio]) : '';
-    const dataFim = colDataFim ? parseDateFlexible(row[colDataFim]) : '';
+    let dataInicio = colDataInicio ? parseDateFlexible(row[colDataInicio]) : '';
+    let dataFim = colDataFim ? parseDateFlexible(row[colDataFim]) : '';
+
+    // Se a linha não trouxe data, usa o mês de referência escolhido na importação
+    if(!dataInicio && mesReforco){
+      dataInicio = mesReforco + '-01';
+    }
+    if(!dataFim && mesReforco){
+      dataFim = mesReforco + '-01';
+    }
 
     if(dataInicio && (!dataMin || dataInicio < dataMin)) dataMin = dataInicio;
     if(dataFim && (!dataMax || dataFim > dataMax)) dataMax = dataFim;
 
+    const novoId = uid();
     resultados.push({
-      id: uid(),
+      id: novoId,
       tipoRegistro: 'campanha',
       mesReferencia: '',
       nomeCampanha,
       dataInicio, dataFim,
       empresa, plataforma,
       investimento, leads,
-      conversoes: '', receita: ''
+      conversoes: '', receita: '',
+      justificativa: ''
     });
+    idsImportados.push(novoId);
     importados++;
     totalImportado += investimento;
   });
 
+  // Abre automaticamente o(s) mês(es) das campanhas recém-importadas, para que apareçam na hora
+  resultados.filter(r=>idsImportados.includes(r.id)).forEach(r=>{
+    const key = resDateKey(r) ? resDateKey(r).slice(0,7) : 'sem-data';
+    resMesesAbertos.add(key);
+  });
+
   renderResultados();
   await saveResultados();
-  mostrarConciliacao(plataforma, empresa, totalImportado, importados, dataMin, dataMax);
+  mostrarConciliacao(plataforma, empresa, totalImportado, importados, dataMin, dataMax, idsImportados);
 });
 
 function mapPlataformaParaTipoFinanceiro(plataforma){
@@ -2875,7 +2908,7 @@ function mapPlataformaParaTipoFinanceiro(plataforma){
   return mapa[plataforma] || '';
 }
 
-function mostrarConciliacao(plataforma, empresa, totalImportado, qtdCampanhas, dataMin, dataMax){
+function mostrarConciliacao(plataforma, empresa, totalImportado, qtdCampanhas, dataMin, dataMax, idsImportados){
   const tipoFin = mapPlataformaParaTipoFinanceiro(plataforma);
   const temPeriodo = !!(dataMin && dataMax);
 
@@ -2905,8 +2938,29 @@ function mostrarConciliacao(plataforma, empresa, totalImportado, qtdCampanhas, d
     <div class="conc-linha"><span>Total gasto segundo o relatório do ${escapeHtml(plataforma)}</span><strong>${formatBRL(totalImportado)}</strong></div>
     <div class="conc-linha"><span>Total já lançado no Financeiro (${escapeHtml(tipoFin)})</span><strong>${formatBRL(totalFinanceiro)}</strong></div>
     <div class="conc-linha conc-diferenca"><span>Diferença</span><strong>${formatBRL(Math.abs(diferenca))} ${diferenca !== 0 ? (diferenca > 0 ? '(relatório maior)' : '(Financeiro maior)') : ''}</strong></div>
-    ${!bateu ? '<div style="margin-top:10px;font-size:12.5px;">Confira se todos os boletos dessa plataforma já foram lançados no Financeiro, ou se algum valor foi digitado errado.</div>' : ''}
+    ${!bateu ? `
+      <div style="margin-top:10px;font-size:12.5px;">Confira se todos os boletos dessa plataforma já foram lançados no Financeiro, ou se algum valor foi digitado errado. Se souber o motivo, pode registrar aqui:</div>
+      <textarea id="conc-justificativa" rows="2" placeholder="Ex: cliente pagou parte do boleto em outra data, ainda vou lançar o restante..." style="width:100%;margin-top:8px;padding:8px 10px;border-radius:4px;border:1px solid rgba(28,36,24,0.25);font-family:'Inter',sans-serif;font-size:13px;"></textarea>
+      <button class="btn-primary" id="conc-btn-salvar-justificativa" style="margin-top:8px;">Salvar justificativa</button>
+      <div id="conc-justificativa-status" style="font-size:12px;color:var(--text-muted-on-paper);margin-top:6px;"></div>
+    ` : ''}
   `;
+
+  if(!bateu){
+    document.getElementById('conc-btn-salvar-justificativa').addEventListener('click', async ()=>{
+      const texto = document.getElementById('conc-justificativa').value.trim();
+      if(!texto){
+        document.getElementById('conc-justificativa').focus();
+        return;
+      }
+      resultados.filter(r=>idsImportados.includes(r.id)).forEach(r=>{
+        r.justificativa = texto;
+      });
+      await saveResultados();
+      renderResultados();
+      document.getElementById('conc-justificativa-status').textContent = 'Justificativa salva nas campanhas importadas.';
+    });
+  }
 }
 
 document.getElementById('import-btn-fechar').addEventListener('click', ()=>{
