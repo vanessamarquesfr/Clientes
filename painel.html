@@ -626,6 +626,9 @@ body{
 
 .import-bar{
   margin-bottom:18px;
+  display:flex;
+  gap:10px;
+  flex-wrap:wrap;
 }
 .modal-wide{
   max-width:560px;
@@ -857,6 +860,7 @@ body{
   <div id="view-resultados" style="display:none;">
     <div class="import-bar">
       <button class="btn-secondary" id="btn-open-import">📄 Importar relatório (CSV do Meta ou TikTok)</button>
+      <button class="btn-secondary" id="btn-corrigir-datas">Corrigir datas invertidas</button>
     </div>
     <div class="cat-summary" id="resultado-summary"></div>
     <div class="comparativo-section" id="comparativo-plataformas"></div>
@@ -2230,6 +2234,25 @@ function renderComparativoPlataformas(items){
   `;
 }
 
+document.getElementById('btn-corrigir-datas').addEventListener('click', async ()=>{
+  let corrigidos = 0;
+  resultados.forEach(r=>{
+    if(r.dataInicio && r.dataFim && r.dataInicio > r.dataFim){
+      const troca = r.dataInicio;
+      r.dataInicio = r.dataFim;
+      r.dataFim = troca;
+      corrigidos++;
+    }
+  });
+  if(corrigidos === 0){
+    alert('Nenhuma campanha com data invertida foi encontrada — está tudo certo.');
+    return;
+  }
+  renderResultados();
+  await saveResultados();
+  alert(`${corrigidos} campanha(s) corrigida(s): a data de início e fim estavam trocadas.`);
+});
+
 function renderResultados(){
   const search = document.getElementById('rf-search').value.trim().toLowerCase();
   const fPlat = document.getElementById('rf-plataforma').value;
@@ -2864,6 +2887,14 @@ document.getElementById('import-btn-confirm').addEventListener('click', async ()
     }
     if(!dataFim && mesReforco){
       dataFim = mesReforco + '-01';
+    }
+
+    // Trava de segurança: uma campanha nunca termina antes de começar.
+    // Se vier invertido (colunas trocadas no arquivo), corrige automaticamente.
+    if(dataInicio && dataFim && dataInicio > dataFim){
+      const troca = dataInicio;
+      dataInicio = dataFim;
+      dataFim = troca;
     }
 
     if(dataInicio && (!dataMin || dataInicio < dataMin)) dataMin = dataInicio;
