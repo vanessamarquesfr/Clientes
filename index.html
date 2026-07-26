@@ -464,6 +464,34 @@ body{
 }
 .col-date-filter button:hover{color:var(--paper);}
 
+.cat-summary{
+  display:flex;
+  gap:10px;
+  flex-wrap:wrap;
+  margin-bottom:22px;
+}
+.cat-chip{
+  background:var(--ink-soft);
+  border:1px solid var(--line);
+  border-radius:6px;
+  padding:10px 14px;
+  min-width:150px;
+}
+.cat-chip .cat-label{
+  font-family:'IBM Plex Mono',monospace;
+  font-size:10.5px;
+  text-transform:uppercase;
+  letter-spacing:0.5px;
+  color:var(--mist);
+  margin-bottom:4px;
+}
+.cat-chip .cat-valor{
+  font-family:'IBM Plex Mono',monospace;
+  font-weight:700;
+  font-size:15px;
+  color:var(--paper);
+}
+
 </style>
 </head>
 <body>
@@ -514,13 +542,16 @@ body{
   </div>
 
   <div id="view-financeiro" style="display:none;">
+    <div class="cat-summary" id="cat-summary"></div>
+
     <div class="filters">
       <input type="text" id="ff-search" placeholder="Buscar por descrição...">
       <select id="ff-tipo">
         <option value="">Todos os tipos</option>
-        <option>Mídia/Anúncio</option>
-        <option>Fornecedor</option>
+        <option>Mídia - Redes Sociais</option>
+        <option>Mídia - Outras</option>
         <option>Ferramenta/Assinatura</option>
+        <option>Fornecedor</option>
         <option>Imposto</option>
         <option>Outro</option>
       </select>
@@ -643,9 +674,10 @@ body{
       <div class="field">
         <label>Tipo</label>
         <select id="fin-tipo">
-          <option>Mídia/Anúncio</option>
-          <option>Fornecedor</option>
+          <option>Mídia - Redes Sociais</option>
+          <option>Mídia - Outras</option>
           <option>Ferramenta/Assinatura</option>
+          <option>Fornecedor</option>
           <option>Imposto</option>
           <option>Outro</option>
         </select>
@@ -905,7 +937,7 @@ function render(){
         groupHead.className = `group-head ${empresaClass(key)}`;
         groupHead.innerHTML = `<span class="dot"></span>${escapeHtml(key)} <span class="g-count">(${groups[key].length})</span>`;
         cardsEl.appendChild(groupHead);
-        groups[key].forEach(d=>{
+        sortByPrazo(groups[key]).forEach(d=>{
           cardsEl.appendChild(buildCard(d, colIdx));
         });
       });
@@ -940,6 +972,15 @@ function render(){
     });
 
     board.appendChild(col);
+  });
+}
+
+function sortByPrazo(list){
+  return [...list].sort((a,b)=>{
+    if(!a.prazo && !b.prazo) return 0;
+    if(!a.prazo) return 1;
+    if(!b.prazo) return -1;
+    return a.prazo.localeCompare(b.prazo);
   });
 }
 
@@ -1177,6 +1218,19 @@ function formatBRL(valor){
   return 'R$ ' + n.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
 }
 
+function renderCatSummary(items){
+  const CATEGORIAS = ['Mídia - Redes Sociais','Mídia - Outras','Ferramenta/Assinatura','Fornecedor','Imposto','Outro'];
+  const el = document.getElementById('cat-summary');
+  el.innerHTML = '';
+  CATEGORIAS.forEach(cat=>{
+    const total = items.filter(p=>p.tipo===cat).reduce((s,p)=>s+(Number(p.valor)||0),0);
+    const chip = document.createElement('div');
+    chip.className = 'cat-chip';
+    chip.innerHTML = `<div class="cat-label">${escapeHtml(cat)}</div><div class="cat-valor">${formatBRL(total)}</div>`;
+    el.appendChild(chip);
+  });
+}
+
 function renderFin(){
   const search = document.getElementById('ff-search').value.trim().toLowerCase();
   const fTipo = document.getElementById('ff-tipo').value;
@@ -1195,6 +1249,8 @@ function renderFin(){
   const mesAtual = new Date().toISOString().slice(0,7);
   const totalMesAtual = pagamentos.filter(p=>p.status==='pago' && p.vencimento && p.vencimento.slice(0,7)===mesAtual).reduce((s,p)=>s+(Number(p.valor)||0),0);
   document.getElementById('sub-info').textContent = `${pagamentos.length} pagamento${pagamentos.length===1?'':'s'} · ${formatBRL(totalAPagar)} a pagar · ${formatBRL(totalMesAtual)} gasto este mês`;
+
+  renderCatSummary(filtered);
 
   const board = document.getElementById('board-fin');
   board.innerHTML = '';
@@ -1337,7 +1393,7 @@ function openFinModal(p){
   document.getElementById('fin-edit-id').value = p ? p.id : '';
   document.getElementById('fin-descricao').value = p ? p.descricao : '';
   document.getElementById('fin-empresa').value = p ? p.empresa : 'Lotus';
-  document.getElementById('fin-tipo').value = p ? p.tipo : 'Mídia/Anúncio';
+  document.getElementById('fin-tipo').value = p ? p.tipo : 'Mídia - Redes Sociais';
   document.getElementById('fin-valor').value = p ? p.valor : '';
   document.getElementById('fin-prioridade').value = p ? p.prioridade : 'media';
   document.getElementById('fin-vencimento').value = p ? p.vencimento : '';
