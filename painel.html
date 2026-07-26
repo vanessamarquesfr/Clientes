@@ -903,10 +903,8 @@ body{
       </select>
       <select id="crm-origem">
         <option value="">Todas as origens</option>
-        <option>Meta</option>
-        <option>Google</option>
-        <option>TikTok</option>
-        <option>Kwai</option>
+        <option>Umbler</option>
+        <option>CRM Open Source</option>
         <option>Indicação</option>
         <option>Outro</option>
       </select>
@@ -923,7 +921,7 @@ body{
     <input type="hidden" id="crm-edit-id">
     <div class="field">
       <label>Título do relatório</label>
-      <input type="text" id="crm-nome" placeholder="Ex: Relatório Meta - Julho">
+      <input type="text" id="crm-nome" placeholder="Ex: Relatório Umbler - Julho">
       <div class="field-hint">Como você quer identificar esse relatório na lista</div>
     </div>
     <div class="field-row">
@@ -936,12 +934,10 @@ body{
         </select>
       </div>
       <div class="field">
-        <label>Origem do lead</label>
+        <label>Origem do relatório</label>
         <select id="crm-origem-modal">
-          <option>Meta</option>
-          <option>Google</option>
-          <option>TikTok</option>
-          <option>Kwai</option>
+          <option>Umbler</option>
+          <option>CRM Open Source</option>
           <option>Indicação</option>
           <option>Outro</option>
         </select>
@@ -949,7 +945,7 @@ body{
     </div>
     <div class="field-row">
       <div class="field">
-        <label>Data do lead</label>
+        <label>Data do relatório</label>
         <input type="date" id="crm-data">
       </div>
       <div class="field">
@@ -988,12 +984,10 @@ body{
     <div id="import-crm-step-upload">
       <div class="field-row">
         <div class="field">
-          <label>Origem dos leads</label>
+          <label>Origem do relatório</label>
           <select id="import-crm-origem">
-            <option>Meta</option>
-            <option>Google</option>
-            <option>TikTok</option>
-            <option>Kwai</option>
+            <option>Umbler</option>
+            <option>CRM Open Source</option>
             <option>Indicação</option>
             <option>Outro</option>
           </select>
@@ -1377,11 +1371,22 @@ async function apiGet(sheetName){
 }
 
 async function apiSave(sheetName, items){
-  await fetch(API_URL, {
-    method: 'POST',
-    headers: {'Content-Type': 'text/plain;charset=utf-8'},
-    body: JSON.stringify({sheet: sheetName, items})
-  });
+  try{
+    const res = await fetch(API_URL, {
+      method: 'POST',
+      headers: {'Content-Type': 'text/plain;charset=utf-8'},
+      body: JSON.stringify({sheet: sheetName, items})
+    });
+    const data = await res.json();
+    if(!data.ok){
+      alert(`Não consegui salvar na planilha (aba "${sheetName}"). ${data.error || 'Verifique se essa aba existe na planilha, com esse nome exato.'}`);
+      return false;
+    }
+    return true;
+  }catch(e){
+    alert(`Não consegui salvar na planilha (aba "${sheetName}"). Verifique sua internet e tente novamente.`);
+    return false;
+  }
 }
 
 function uploadFileToDrive(file){
@@ -2648,7 +2653,7 @@ function openCrmModal(l){
   document.getElementById('crm-edit-id').value = l ? l.id : '';
   document.getElementById('crm-nome').value = l ? (l.nome || '') : '';
   document.getElementById('crm-empresa-modal').value = l ? l.empresa : 'Lotus';
-  document.getElementById('crm-origem-modal').value = l ? l.origem : 'Meta';
+  document.getElementById('crm-origem-modal').value = l ? l.origem : 'Umbler';
   document.getElementById('crm-data').value = l ? (l.data || '') : '';
   document.getElementById('crm-responsavel').value = l ? (l.responsavel || '') : '';
   document.getElementById('crm-status').value = l ? (l.status || 'Novo') : 'Novo';
@@ -2685,6 +2690,11 @@ document.getElementById('crm-btn-save').addEventListener('click', async ()=>{
 
   const anexo = await resolveAttachment('crm-arquivo', 'crm-arquivo-link', existing && existing.arquivoUrl, existing && existing.arquivoNome, 'crm-btn-save');
   if(anexo.cancel) return;
+
+  const arquivoMudou = document.getElementById('crm-arquivo').files.length > 0;
+  if(arquivoMudou && anexo.url){
+    alert('Arquivo enviado com sucesso: ' + anexo.nome);
+  }
 
   if(id){
     const l = crmLeads.find(x=>x.id===id);
