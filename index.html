@@ -163,6 +163,17 @@ body{
 }
 .group-head .dot{width:6px;height:6px;}
 .group-head .g-count{color:var(--mist-dim);}
+.group-head-toggle{
+  user-select:none;
+  padding:6px 4px;
+  border-radius:3px;
+}
+.group-head-toggle:hover{background:rgba(244,239,228,0.06);}
+.toggle-arrow{
+  display:inline-block;
+  width:12px;
+  color:var(--mist-dim);
+}
 
 /* Card */
 .card{
@@ -469,6 +480,7 @@ body{
   gap:10px;
   flex-wrap:wrap;
   margin-bottom:22px;
+  align-items:flex-start;
 }
 .cat-chip{
   background:var(--ink-soft);
@@ -491,6 +503,46 @@ body{
   font-size:15px;
   color:var(--paper);
 }
+.cat-chip-media{
+  background:var(--ink-soft);
+  border:1px solid var(--ember);
+  border-radius:6px;
+  padding:12px 16px;
+  min-width:280px;
+}
+.cat-chip-media .cat-label{
+  font-family:'IBM Plex Mono',monospace;
+  font-size:11px;
+  text-transform:uppercase;
+  letter-spacing:0.5px;
+  color:var(--ember);
+  margin-bottom:4px;
+}
+.cat-chip-media .cat-valor{
+  font-family:'IBM Plex Mono',monospace;
+  font-weight:700;
+  font-size:19px;
+  color:var(--paper);
+  margin-bottom:10px;
+}
+.media-breakdown{
+  display:flex;
+  flex-direction:column;
+  gap:5px;
+  border-top:1px solid var(--line);
+  padding-top:8px;
+}
+.media-breakdown-row{
+  display:flex;
+  justify-content:space-between;
+  font-size:12px;
+}
+.media-breakdown-row .plat-nome{color:var(--mist);}
+.media-breakdown-row .plat-valor{
+  font-family:'IBM Plex Mono',monospace;
+  color:var(--paper);
+  font-weight:600;
+}
 
 </style>
 </head>
@@ -511,13 +563,14 @@ body{
 
   <div id="view-demandas">
     <div class="filters">
-      <input type="text" id="f-search" placeholder="Buscar por título ou solicitante...">
+      <input type="text" id="f-search" placeholder="Buscar por título, tipo, descrição ou solicitante...">
       <select id="f-tipo">
         <option value="">Todos os tipos</option>
         <option>Campanha</option>
         <option>Post</option>
         <option>E-mail</option>
         <option>Peça gráfica</option>
+        <option>Apresentação</option>
         <option>Evento</option>
         <option>Outro</option>
       </select>
@@ -548,7 +601,10 @@ body{
       <input type="text" id="ff-search" placeholder="Buscar por descrição...">
       <select id="ff-tipo">
         <option value="">Todos os tipos</option>
-        <option>Mídia - Redes Sociais</option>
+        <option>Mídia - Meta</option>
+        <option>Mídia - Google</option>
+        <option>Mídia - TikTok</option>
+        <option>Mídia - Kwai</option>
         <option>Mídia - Outras</option>
         <option>Ferramenta/Assinatura</option>
         <option>Fornecedor</option>
@@ -608,6 +664,7 @@ body{
           <option>Post</option>
           <option>E-mail</option>
           <option>Peça gráfica</option>
+          <option>Apresentação</option>
           <option>Evento</option>
           <option>Outro</option>
         </select>
@@ -674,7 +731,10 @@ body{
       <div class="field">
         <label>Tipo</label>
         <select id="fin-tipo">
-          <option>Mídia - Redes Sociais</option>
+          <option>Mídia - Meta</option>
+          <option>Mídia - Google</option>
+          <option>Mídia - TikTok</option>
+          <option>Mídia - Kwai</option>
           <option>Mídia - Outras</option>
           <option>Ferramenta/Assinatura</option>
           <option>Fornecedor</option>
@@ -736,6 +796,7 @@ const STORAGE_KEY = 'demandas-marketing';
 let demandas = [];
 let concFiltroDe = '';
 let concFiltroAte = '';
+let concMesesAbertos = new Set();
 
 function uid(){return 'd' + Date.now().toString(36) + Math.random().toString(36).slice(2,7);}
 
@@ -866,7 +927,7 @@ function render(){
     if(fTipo && d.tipo !== fTipo) return false;
     if(fPrio && d.prioridade !== fPrio) return false;
     if(fEmpresa && d.empresa !== fEmpresa) return false;
-    if(search && !(d.titulo.toLowerCase().includes(search) || (d.solicitante||'').toLowerCase().includes(search) || (d.descricao||'').toLowerCase().includes(search))) return false;
+    if(search && !(d.titulo.toLowerCase().includes(search) || (d.solicitante||'').toLowerCase().includes(search) || (d.descricao||'').toLowerCase().includes(search) || (d.tipo||'').toLowerCase().includes(search))) return false;
     return true;
   });
 
@@ -913,13 +974,22 @@ function render(){
       cardsEl.appendChild(empty);
     } else if(st.key === 'concluido'){
       groupByMonth(items, 'prazo').forEach(group=>{
+        const isOpen = concMesesAbertos.has(group.key) || !!search;
         const groupHead = document.createElement('div');
-        groupHead.className = 'group-head';
-        groupHead.innerHTML = `${escapeHtml(group.label)} <span class="g-count">(${group.items.length})</span>`;
-        cardsEl.appendChild(groupHead);
-        group.items.forEach(d=>{
-          cardsEl.appendChild(buildCard(d, colIdx));
+        groupHead.className = 'group-head group-head-toggle';
+        groupHead.innerHTML = `<span class="toggle-arrow">${isOpen ? '▾' : '▸'}</span>${escapeHtml(group.label)} <span class="g-count">(${group.items.length})</span>`;
+        groupHead.style.cursor = 'pointer';
+        groupHead.addEventListener('click', ()=>{
+          if(concMesesAbertos.has(group.key)) concMesesAbertos.delete(group.key);
+          else concMesesAbertos.add(group.key);
+          render();
         });
+        cardsEl.appendChild(groupHead);
+        if(isOpen){
+          group.items.forEach(d=>{
+            cardsEl.appendChild(buildCard(d, colIdx));
+          });
+        }
       });
     } else {
       const EMPRESA_ORDER = ['Lotus','Flora Brasil','Novo Ciclo'];
@@ -1025,7 +1095,7 @@ function buildCard(d, colIdx){
 
   let dueClass = '';
   let dueLabel = fmtDate(d.prazo);
-  if(d.prazo){
+  if(d.prazo && d.status !== 'concluido'){
     const diff = daysUntil(d.prazo);
     if(diff < 0){ dueClass='due-late'; dueLabel = `atrasado (${fmtDate(d.prazo)})`; }
     else if(diff <= 2){ dueClass='due-soon'; dueLabel = `${fmtDate(d.prazo)} (em breve)`; }
@@ -1219,10 +1289,29 @@ function formatBRL(valor){
 }
 
 function renderCatSummary(items){
-  const CATEGORIAS = ['Mídia - Redes Sociais','Mídia - Outras','Ferramenta/Assinatura','Fornecedor','Imposto','Outro'];
+  const PLATAFORMAS_MIDIA = ['Mídia - Meta','Mídia - Google','Mídia - TikTok','Mídia - Kwai','Mídia - Outras'];
+  const OUTRAS_CATEGORIAS = ['Ferramenta/Assinatura','Fornecedor','Imposto','Outro'];
   const el = document.getElementById('cat-summary');
   el.innerHTML = '';
-  CATEGORIAS.forEach(cat=>{
+
+  // Cartão único de Mídia/Redes Sociais, com o total geral e o detalhamento por plataforma dentro
+  const totalMidia = items.filter(p=>PLATAFORMAS_MIDIA.includes(p.tipo)).reduce((s,p)=>s+(Number(p.valor)||0),0);
+  const chipMidia = document.createElement('div');
+  chipMidia.className = 'cat-chip-media';
+  const breakdownRows = PLATAFORMAS_MIDIA.map(plat=>{
+    const totalPlat = items.filter(p=>p.tipo===plat).reduce((s,p)=>s+(Number(p.valor)||0),0);
+    const nomePlat = plat.replace('Mídia - ','');
+    return `<div class="media-breakdown-row"><span class="plat-nome">${escapeHtml(nomePlat)}</span><span class="plat-valor">${formatBRL(totalPlat)}</span></div>`;
+  }).join('');
+  chipMidia.innerHTML = `
+    <div class="cat-label">Mídia / Redes Sociais</div>
+    <div class="cat-valor">${formatBRL(totalMidia)}</div>
+    <div class="media-breakdown">${breakdownRows}</div>
+  `;
+  el.appendChild(chipMidia);
+
+  // Demais categorias, como cartões simples
+  OUTRAS_CATEGORIAS.forEach(cat=>{
     const total = items.filter(p=>p.tipo===cat).reduce((s,p)=>s+(Number(p.valor)||0),0);
     const chip = document.createElement('div');
     chip.className = 'cat-chip';
@@ -1393,7 +1482,7 @@ function openFinModal(p){
   document.getElementById('fin-edit-id').value = p ? p.id : '';
   document.getElementById('fin-descricao').value = p ? p.descricao : '';
   document.getElementById('fin-empresa').value = p ? p.empresa : 'Lotus';
-  document.getElementById('fin-tipo').value = p ? p.tipo : 'Mídia - Redes Sociais';
+  document.getElementById('fin-tipo').value = p ? p.tipo : 'Mídia - Meta';
   document.getElementById('fin-valor').value = p ? p.valor : '';
   document.getElementById('fin-prioridade').value = p ? p.prioridade : 'media';
   document.getElementById('fin-vencimento').value = p ? p.vencimento : '';
