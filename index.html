@@ -38,6 +38,9 @@ body{
 .wrap{
   width:100%;
   max-width:520px;
+  display:flex;
+  flex-direction:column;
+  gap:16px;
 }
 .agency-header{
   text-align:center;
@@ -99,6 +102,12 @@ body{
   font-size:12.5px;
   font-weight:600;
   color:var(--ember);
+}
+.client-logo{
+  height:32px;
+  width:auto;
+  display:block;
+  margin-bottom:10px;
 }
 
 /* Modal de senha */
@@ -192,6 +201,20 @@ body{
     <div class="client-desc">Painel de demandas, financeiro e resultados de mídia.</div>
     <div class="enter-hint">Clique para acessar →</div>
   </div>
+
+  <div class="client-card" id="card-tablegames">
+    <div class="client-label">Cliente</div>
+    <h2>Table Games / Frito no Pote</h2>
+    <div class="client-desc">Painel em construção.</div>
+    <div class="enter-hint">Clique para acessar →</div>
+  </div>
+
+  <div class="client-card" id="card-animeflix">
+    <div class="client-label">Cliente</div>
+    <h2>AnimeFlix</h2>
+    <div class="client-desc">Painel em construção.</div>
+    <div class="enter-hint">Clique para acessar →</div>
+  </div>
 </div>
 
 <div class="overlay" id="overlay-senha">
@@ -209,10 +232,17 @@ body{
 
 <script>
 const SENHAS = {
-  flora: '1996'
+  flora: '1996',
+  tablegames: '0803',
+  animeflix: '0803'
 };
 const DESTINOS = {
   flora: 'painel.html'
+};
+const NOMES = {
+  flora: 'Grupo Flora Brasil',
+  tablegames: 'Table Games / Frito no Pote',
+  animeflix: 'AnimeFlix'
 };
 
 let clienteAtual = null;
@@ -220,9 +250,16 @@ let clienteAtual = null;
 document.getElementById('card-flora').addEventListener('click', ()=>{
   abrirSenha('flora');
 });
+document.getElementById('card-tablegames').addEventListener('click', ()=>{
+  abrirSenha('tablegames');
+});
+document.getElementById('card-animeflix').addEventListener('click', ()=>{
+  abrirSenha('animeflix');
+});
 
 function abrirSenha(cliente){
   clienteAtual = cliente;
+  document.querySelector('.password-box h3').textContent = NOMES[cliente];
   document.getElementById('input-senha').value = '';
   document.getElementById('erro-senha').textContent = '';
   document.getElementById('overlay-senha').classList.add('show');
@@ -242,9 +279,15 @@ document.getElementById('overlay-senha').addEventListener('click', e=>{
 function tentarEntrar(){
   const valor = document.getElementById('input-senha').value.trim();
   if(valor === SENHAS[clienteAtual]){
-    sessionStorage.setItem('acesso_' + clienteAtual, 'ok');
-    window.location.href = DESTINOS[clienteAtual];
+    if(DESTINOS[clienteAtual]){
+      sessionStorage.setItem('acesso_' + clienteAtual, 'ok');
+      window.location.href = DESTINOS[clienteAtual];
+    } else {
+      document.getElementById('erro-senha').style.color = '#2f9c76';
+      document.getElementById('erro-senha').textContent = 'Senha correta! O painel desse cliente ainda está sendo preparado.';
+    }
   } else {
+    document.getElementById('erro-senha').style.color = '';
     document.getElementById('erro-senha').textContent = 'Senha incorreta. Tente novamente.';
     document.getElementById('input-senha').value = '';
     document.getElementById('input-senha').focus();
