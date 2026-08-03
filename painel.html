@@ -1426,6 +1426,7 @@ let concFiltroAte = '';
 let concMesesAbertos = new Set();
 let resMesesAbertos = new Set();
 let crmMesesAbertos = new Set();
+let finMesesAbertos = new Set();
 
 function uid(){return 'd' + Date.now().toString(36) + Math.random().toString(36).slice(2,7);}
 
@@ -2023,14 +2024,25 @@ function renderFin(){
       cardsEl.appendChild(empty);
     } else if(st.key === 'pago'){
       groupByMonth(items, 'vencimento').forEach(group=>{
+        const groupKey = `${st.key}::${group.key}`;
+        const isOpen = finMesesAbertos.has(groupKey) || !!search;
         const totalMes = group.items.reduce((s,p)=>s+(Number(p.valor)||0),0);
         const groupHead = document.createElement('div');
-        groupHead.className = 'group-head';
-        groupHead.innerHTML = `${escapeHtml(group.label)} <span class="g-count">(${group.items.length} · ${formatBRL(totalMes)})</span>`;
-        cardsEl.appendChild(groupHead);
-        group.items.forEach(p=>{
-          cardsEl.appendChild(buildFinCard(p, colIdx));
+        groupHead.className = 'group-head group-head-toggle';
+        groupHead.innerHTML = `<span class="toggle-arrow">${isOpen ? '▾' : '▸'}</span>${escapeHtml(group.label)} <span class="g-count">(${group.items.length} · ${formatBRL(totalMes)})</span>`;
+        groupHead.style.cursor = 'pointer';
+        groupHead.addEventListener('click', ()=>{
+          if(finMesesAbertos.has(groupKey)) finMesesAbertos.delete(groupKey);
+          else finMesesAbertos.add(groupKey);
+          renderFin();
         });
+        cardsEl.appendChild(groupHead);
+
+        if(isOpen){
+          group.items.forEach(p=>{
+            cardsEl.appendChild(buildFinCard(p, colIdx));
+          });
+        }
       });
     } else {
       const EMPRESA_ORDER = ['Lotus','Flora Brasil','Novo Ciclo'];
