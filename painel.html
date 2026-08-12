@@ -177,12 +177,39 @@ body{
   padding:6px 4px;
   border-radius:3px;
 }
-.group-head-toggle:hover{background:rgba(244,239,228,0.06);}
+.group-head-toggle:hover{background:rgba(244,239,226,0.06);}
+.group-head-selecionado{
+  background:rgba(217,164,65,0.12);
+  border-left:2px solid var(--amber);
+  padding-left:6px;
+}
 .toggle-arrow{
   display:inline-block;
   width:12px;
   color:var(--mist-dim);
 }
+
+.mes-selecionado-indicador{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  background:rgba(217,164,65,0.12);
+  border:1px solid var(--amber);
+  border-radius:6px;
+  padding:9px 14px;
+  margin-bottom:14px;
+  font-size:13px;
+  font-weight:600;
+}
+.mes-selecionado-indicador button{
+  background:none;
+  border:none;
+  color:var(--amber);
+  font-weight:600;
+  font-size:12.5px;
+  cursor:pointer;
+}
+.mes-selecionado-indicador button:hover{text-decoration:underline;}
 
 /* Card */
 .card{
@@ -723,8 +750,13 @@ body{
   color:var(--paper);
   margin-bottom:10px;
 }
+.comparativo-scroll{
+  overflow-x:auto;
+  border-radius:6px;
+}
 .comparativo-table{
   width:100%;
+  min-width:820px;
   border-collapse:collapse;
   background:var(--paper);
   border-radius:6px;
@@ -740,11 +772,18 @@ body{
   letter-spacing:0.3px;
   text-align:left;
   padding:9px 12px;
+  white-space:nowrap;
 }
 .comparativo-table td{
   padding:9px 12px;
   color:var(--text-on-paper);
   border-bottom:1px solid rgba(28,36,48,0.08);
+}
+.parecer-cell{
+  font-size:12px;
+  font-style:italic;
+  color:var(--text-muted-on-paper);
+  max-width:220px;
 }
 .comparativo-table tr:last-child td{border-bottom:none;}
 .comparativo-table .plat-cell{
@@ -783,8 +822,6 @@ body{
   <div class="tabs">
     <button class="tab-btn active" data-tab="demandas" id="tab-demandas">Demandas</button>
     <button class="tab-btn" data-tab="financeiro" id="tab-financeiro">Financeiro</button>
-    <button class="tab-btn" data-tab="resultados" id="tab-resultados">Resultados</button>
-    <button class="tab-btn" data-tab="crm" id="tab-crm">CRM</button>
   </div>
 
   <div id="view-demandas">
@@ -821,6 +858,10 @@ body{
   </div>
 
   <div id="view-financeiro" style="display:none;">
+    <div class="mes-selecionado-indicador" id="mes-selecionado-indicador" style="display:none;">
+      <span class="mes-sel-label"></span>
+      <button id="mes-sel-limpar">✕ Ver tudo</button>
+    </div>
     <div class="cat-summary" id="cat-summary"></div>
 
     <div class="filters">
@@ -1092,9 +1133,13 @@ body{
         <input type="number" id="res-leads" step="1" min="0" placeholder="0">
       </div>
       <div class="field">
-        <label>Conversões (opcional)</label>
-        <input type="number" id="res-conversoes" step="1" min="0" placeholder="0">
+        <label>Cliques no link (opcional)</label>
+        <input type="number" id="res-cliques" step="1" min="0" placeholder="0">
       </div>
+    </div>
+    <div class="field">
+      <label>Conversões (opcional)</label>
+      <input type="number" id="res-conversoes" step="1" min="0" placeholder="0">
     </div>
     <div class="field">
       <label>Receita gerada em R$ (opcional — usado para calcular o ROI)</label>
@@ -1160,6 +1205,10 @@ body{
       <div class="field">
         <label>Coluna com leads/resultados</label>
         <select id="map-leads"></select>
+      </div>
+      <div class="field">
+        <label>Coluna com cliques no link (opcional)</label>
+        <select id="map-cliques"></select>
       </div>
       <div class="field-row">
         <div class="field">
@@ -1237,6 +1286,10 @@ body{
           <label>Leads/resultados</label>
           <input type="number" id="img-leads" step="1" min="0">
         </div>
+      </div>
+      <div class="field">
+        <label>Cliques no link (se souber)</label>
+        <input type="number" id="img-cliques" step="1" min="0">
       </div>
       <div class="field-row">
         <div class="field">
@@ -1426,7 +1479,7 @@ let concFiltroAte = '';
 let concMesesAbertos = new Set();
 let resMesesAbertos = new Set();
 let crmMesesAbertos = new Set();
-let finMesesAbertos = new Set();
+let mesSelecionadoFin = null; // formato YYYY-MM, ou null se nenhum mês estiver selecionado
 
 function uid(){return 'd' + Date.now().toString(36) + Math.random().toString(36).slice(2,7);}
 
@@ -1882,32 +1935,24 @@ document.getElementById('btn-save').addEventListener('click', async ()=>{
 /* ---------- Abas ---------- */
 document.getElementById('tab-demandas').addEventListener('click', ()=> switchTab('demandas'));
 document.getElementById('tab-financeiro').addEventListener('click', ()=> switchTab('financeiro'));
-document.getElementById('tab-resultados').addEventListener('click', ()=> switchTab('resultados'));
-document.getElementById('tab-crm').addEventListener('click', ()=> switchTab('crm'));
 
 function switchTab(tab){
   document.getElementById('tab-demandas').classList.toggle('active', tab==='demandas');
   document.getElementById('tab-financeiro').classList.toggle('active', tab==='financeiro');
-  document.getElementById('tab-resultados').classList.toggle('active', tab==='resultados');
-  document.getElementById('tab-crm').classList.toggle('active', tab==='crm');
   document.getElementById('view-demandas').style.display = tab==='demandas' ? 'block' : 'none';
   document.getElementById('view-financeiro').style.display = tab==='financeiro' ? 'block' : 'none';
-  document.getElementById('view-resultados').style.display = tab==='resultados' ? 'block' : 'none';
-  document.getElementById('view-crm').style.display = tab==='crm' ? 'block' : 'none';
 
-  const titles = {demandas:'Painel de Demandas', financeiro:'Financeiro', resultados:'Resultados de Mídia Paga', crm:'Controle de Relatório de CRM'};
+  const titles = {demandas:'Painel de Demandas', financeiro:'Financeiro'};
   document.getElementById('page-title').textContent = titles[tab];
 
   const btn = document.getElementById('btn-open-modal');
-  const btnLabels = {demandas:'+ Nova demanda', financeiro:'+ Novo pagamento', resultados:'+ Novo resultado', crm:'+ Novo relatório'};
+  const btnLabels = {demandas:'+ Nova demanda', financeiro:'+ Novo pagamento'};
   btn.textContent = btnLabels[tab];
-  const openers = {demandas:()=>openModal(null), financeiro:()=>openFinModal(null), resultados:()=>openResModal(null), crm:()=>openCrmModal(null)};
+  const openers = {demandas:()=>openModal(null), financeiro:()=>openFinModal(null)};
   btn.onclick = openers[tab];
 
   if(tab==='demandas') render();
-  else if(tab==='financeiro') renderFin();
-  else if(tab==='resultados') renderResultados();
-  else renderCrm();
+  else renderFin();
 }
 
 /* ---------- Financeiro ---------- */
@@ -1943,6 +1988,17 @@ async function saveFinData(){
 function formatBRL(valor){
   const n = Number(valor) || 0;
   return 'R$ ' + n.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
+}
+
+function renderMesSelecionadoIndicador(){
+  const el = document.getElementById('mes-selecionado-indicador');
+  if(!el) return;
+  if(mesSelecionadoFin){
+    el.style.display = 'flex';
+    el.querySelector('.mes-sel-label').textContent = `Mostrando custos de: ${monthLabelFromKey(mesSelecionadoFin)}`;
+  } else {
+    el.style.display = 'none';
+  }
 }
 
 function renderCatSummary(items){
@@ -1996,7 +2052,13 @@ function renderFin(){
   const totalMesAtual = pagamentos.filter(p=>p.status==='pago' && p.vencimento && p.vencimento.slice(0,7)===mesAtual).reduce((s,p)=>s+(Number(p.valor)||0),0);
   document.getElementById('sub-info').textContent = `${pagamentos.length} pagamento${pagamentos.length===1?'':'s'} · ${formatBRL(totalAPagar)} a pagar · ${formatBRL(totalMesAtual)} gasto este mês`;
 
-  renderCatSummary(filtered);
+  // Se um mês estiver selecionado (clicado na coluna Pago), o resumo de custos mostra só aquele mês
+  const itemsParaResumo = mesSelecionadoFin
+    ? filtered.filter(p => p.status==='pago' && p.vencimento && p.vencimento.slice(0,7) === mesSelecionadoFin)
+    : filtered;
+
+  renderCatSummary(itemsParaResumo);
+  renderMesSelecionadoIndicador();
 
   const board = document.getElementById('board-fin');
   board.innerHTML = '';
@@ -2024,16 +2086,15 @@ function renderFin(){
       cardsEl.appendChild(empty);
     } else if(st.key === 'pago'){
       groupByMonth(items, 'vencimento').forEach(group=>{
-        const groupKey = `${st.key}::${group.key}`;
-        const isOpen = finMesesAbertos.has(groupKey) || !!search;
+        const isOpen = mesSelecionadoFin === group.key || !!search;
         const totalMes = group.items.reduce((s,p)=>s+(Number(p.valor)||0),0);
         const groupHead = document.createElement('div');
-        groupHead.className = 'group-head group-head-toggle';
+        groupHead.className = 'group-head group-head-toggle' + (isOpen && mesSelecionadoFin ? ' group-head-selecionado' : '');
         groupHead.innerHTML = `<span class="toggle-arrow">${isOpen ? '▾' : '▸'}</span>${escapeHtml(group.label)} <span class="g-count">(${group.items.length} · ${formatBRL(totalMes)})</span>`;
         groupHead.style.cursor = 'pointer';
         groupHead.addEventListener('click', ()=>{
-          if(finMesesAbertos.has(groupKey)) finMesesAbertos.delete(groupKey);
-          else finMesesAbertos.add(groupKey);
+          // Clicar de novo no mesmo mês desmarca (mostra tudo de novo); clicar em outro mês troca a seleção
+          mesSelecionadoFin = (mesSelecionadoFin === group.key) ? null : group.key;
           renderFin();
         });
         cardsEl.appendChild(groupHead);
@@ -2213,6 +2274,11 @@ document.getElementById('fin-btn-save').addEventListener('click', async ()=>{
   document.getElementById(id).addEventListener('change', renderFin);
 });
 
+document.getElementById('mes-sel-limpar').addEventListener('click', ()=>{
+  mesSelecionadoFin = null;
+  renderFin();
+});
+
 /* ---------- Resultados de Mídia Paga ---------- */
 let resultados = [];
 
@@ -2243,13 +2309,16 @@ async function saveResultados(){
 function calcKpis(r){
   const investimento = Number(r.investimento) || 0;
   const leads = Number(r.leads) || 0;
+  const cliques = Number(r.cliques) || 0;
   const conversoes = Number(r.conversoes) || 0;
   const receita = Number(r.receita) || 0;
   const cpl = leads > 0 ? investimento / leads : null;
+  const cpc = cliques > 0 ? investimento / cliques : null;
+  const cliqueParaLead = (cliques > 0 && leads > 0) ? (leads / cliques) * 100 : null;
   const taxaConversao = (leads > 0 && conversoes > 0) ? (conversoes / leads) * 100 : null;
   const cac = conversoes > 0 ? investimento / conversoes : null;
   const roi = receita > 0 ? ((receita - investimento) / investimento) * 100 : null;
-  return {cpl, taxaConversao, cac, roi};
+  return {cpl, cpc, cliqueParaLead, taxaConversao, cac, roi};
 }
 
 function resDateKey(r){
@@ -2279,11 +2348,13 @@ function renderComparativoPlataformas(items){
     if(platItems.length === 0) return null;
     const investimento = platItems.reduce((s,r)=>s+(Number(r.investimento)||0),0);
     const leads = platItems.reduce((s,r)=>s+(Number(r.leads)||0),0);
+    const cliques = platItems.reduce((s,r)=>s+(Number(r.cliques)||0),0);
     const conversoes = platItems.reduce((s,r)=>s+(Number(r.conversoes)||0),0);
     const receita = platItems.reduce((s,r)=>s+(Number(r.receita)||0),0);
     const cpl = leads > 0 ? investimento/leads : null;
+    const cpc = cliques > 0 ? investimento/cliques : null;
     const roi = receita > 0 ? ((receita-investimento)/investimento)*100 : null;
-    return {plat, investimento, leads, conversoes, receita, cpl, roi};
+    return {plat, investimento, leads, cliques, conversoes, receita, cpl, cpc, roi};
   }).filter(Boolean);
 
   if(linhas.length < 2){
@@ -2302,24 +2373,39 @@ function renderComparativoPlataformas(items){
     return a.cpl - b.cpl;
   });
   const melhorCpl = linhas[0].cpl;
+  const cplsValidos = linhas.map(l=>l.cpl).filter(v=>v!==null);
+  const mediaCpl = cplsValidos.length ? cplsValidos.reduce((s,v)=>s+v,0)/cplsValidos.length : null;
+
+  function gerarParecer(l){
+    if(l.cpl === null) return 'Sem leads suficientes para avaliar';
+    if(l.cpl === melhorCpl) return 'Melhor custo-benefício — priorize essa plataforma';
+    if(mediaCpl !== null && l.cpl > mediaCpl * 1.3) return 'Custo por lead alto — vale revisar segmentação/criativo';
+    if(mediaCpl !== null && l.cpl <= mediaCpl) return 'Dentro da média, desempenho saudável';
+    return 'Um pouco acima da média, monitorar';
+  }
 
   const rows = linhas.map(l=>`
     <tr>
       <td class="plat-cell">${escapeHtml(l.plat)} ${l.cpl!==null && l.cpl===melhorCpl ? '<span class="melhor-badge">MAIS BARATO</span>' : ''}</td>
       <td>${formatBRL(l.investimento)}</td>
+      <td>${l.cliques || '—'}</td>
+      <td>${l.cpc!==null ? formatBRL(l.cpc) : '—'}</td>
       <td>${l.leads}</td>
       <td>${l.cpl!==null ? formatBRL(l.cpl) : '—'}</td>
       <td>${l.conversoes || '—'}</td>
       <td>${l.roi!==null ? l.roi.toFixed(0)+'%' : '—'}</td>
+      <td class="parecer-cell">${gerarParecer(l)}</td>
     </tr>
   `).join('');
 
   el.innerHTML = `
     <div class="comparativo-titulo">Comparativo entre plataformas · ordenado pelo custo por lead</div>
+    <div class="comparativo-scroll">
     <table class="comparativo-table">
-      <thead><tr><th>Plataforma</th><th>Investido</th><th>Leads</th><th>Custo/Lead</th><th>Conversões</th><th>ROI</th></tr></thead>
+      <thead><tr><th>Plataforma</th><th>Investido</th><th>Cliques</th><th>Custo/Clique</th><th>Leads</th><th>Custo/Lead</th><th>Conversões</th><th>ROI</th><th>Parecer</th></tr></thead>
       <tbody>${rows}</tbody>
     </table>
+    </div>
   `;
 }
 
@@ -2379,7 +2465,7 @@ document.getElementById('img-btn-analisar').addEventListener('click', async ()=>
           role: "user",
           content: [
             { type: "image", source: { type: "base64", media_type: imgMimeAtual, data: imgBase64Atual } },
-            { type: "text", text: "Esta é uma captura de tela de um painel de anúncios (Meta, TikTok, Google ou similar). Extraia: o nome da campanha/anúncio, o valor investido/gasto (apenas número, sem símbolo de moeda), e o número de leads/resultados/conversões. Se houver datas de início e fim visíveis, extraia também no formato YYYY-MM-DD. Responda APENAS com um JSON válido, sem nenhum texto antes ou depois, neste formato exato: {\"nomeCampanha\": \"...\", \"investimento\": 0, \"leads\": 0, \"dataInicio\": \"\", \"dataFim\": \"\"}. Se não conseguir identificar algum campo com certeza, deixe como string vazia ou 0." }
+            { type: "text", text: "Esta é uma captura de tela de um painel de anúncios (Meta, TikTok, Google ou similar). Extraia: o nome da campanha/anúncio, o valor investido/gasto (apenas número, sem símbolo de moeda), o número de leads/resultados/conversões, e o número de cliques no link (se aparecer, geralmente chamado de 'Cliques no link', 'Link clicks' ou 'Cliques'). Se houver datas de início e fim visíveis, extraia também no formato YYYY-MM-DD. Responda APENAS com um JSON válido, sem nenhum texto antes ou depois, neste formato exato: {\"nomeCampanha\": \"...\", \"investimento\": 0, \"leads\": 0, \"cliques\": 0, \"dataInicio\": \"\", \"dataFim\": \"\"}. Se não conseguir identificar algum campo com certeza, deixe como string vazia ou 0." }
           ]
         }]
       })
@@ -2392,6 +2478,7 @@ document.getElementById('img-btn-analisar').addEventListener('click', async ()=>
     document.getElementById('img-nome-campanha').value = extraido.nomeCampanha || '';
     document.getElementById('img-investimento').value = extraido.investimento || '';
     document.getElementById('img-leads').value = extraido.leads || '';
+    document.getElementById('img-cliques').value = extraido.cliques || '';
     document.getElementById('img-data-inicio').value = extraido.dataInicio || '';
     document.getElementById('img-data-fim').value = extraido.dataFim || '';
 
@@ -2421,6 +2508,7 @@ document.getElementById('img-btn-salvar').addEventListener('click', async ()=>{
   const empresa = document.getElementById('img-empresa').value;
   const investimento = document.getElementById('img-investimento').value;
   const leads = document.getElementById('img-leads').value;
+  const cliques = document.getElementById('img-cliques').value;
   const dataInicio = document.getElementById('img-data-inicio').value;
   const dataFim = document.getElementById('img-data-fim').value;
 
@@ -2430,7 +2518,7 @@ document.getElementById('img-btn-salvar').addEventListener('click', async ()=>{
     mesReferencia: '',
     nomeCampanha, dataInicio, dataFim,
     empresa, plataforma,
-    investimento, leads,
+    investimento, leads, cliques,
     conversoes: '', receita: '', justificativa: ''
   });
 
@@ -2566,6 +2654,8 @@ function buildResCard(r){
       <div><div class="res-kpi-label">Investimento</div><div class="res-kpi-valor">${formatBRL(r.investimento)}</div></div>
       <div><div class="res-kpi-label">Leads</div><div class="res-kpi-valor">${Number(r.leads)||0}</div></div>
       <div><div class="res-kpi-label">Custo/Lead</div><div class="res-kpi-valor">${kpis.cpl!==null ? formatBRL(kpis.cpl) : '—'}</div></div>
+      <div><div class="res-kpi-label">Cliques no link</div><div class="res-kpi-valor">${Number(r.cliques)||0}</div></div>
+      <div><div class="res-kpi-label">Custo/Clique</div><div class="res-kpi-valor">${kpis.cpc!==null ? formatBRL(kpis.cpc) : '—'}</div></div>
       <div><div class="res-kpi-label">Conversões</div><div class="res-kpi-valor">${r.conversoes || 0}</div></div>
       <div><div class="res-kpi-label">Tx. Conversão</div><div class="res-kpi-valor">${kpis.taxaConversao!==null ? kpis.taxaConversao.toFixed(1)+'%' : '—'}</div></div>
       <div><div class="res-kpi-label">ROI</div><div class="res-kpi-valor ${kpis.roi!==null ? (kpis.roi>=0?'roi-pos':'roi-neg') : ''}">${kpis.roi!==null ? kpis.roi.toFixed(0)+'%' : '—'}</div></div>
@@ -2610,6 +2700,7 @@ function openResModal(r){
   document.getElementById('res-plataforma').value = r ? r.plataforma : 'Meta';
   document.getElementById('res-investimento').value = r ? r.investimento : '';
   document.getElementById('res-leads').value = r ? r.leads : '';
+  document.getElementById('res-cliques').value = r ? (r.cliques || '') : '';
   document.getElementById('res-conversoes').value = r ? (r.conversoes || '') : '';
   document.getElementById('res-receita').value = r ? (r.receita || '') : '';
   document.getElementById('res-justificativa').value = r ? (r.justificativa || '') : '';
@@ -2647,6 +2738,7 @@ document.getElementById('res-btn-save').addEventListener('click', ()=>{
   const plataforma = document.getElementById('res-plataforma').value;
   const investimento = document.getElementById('res-investimento').value;
   const leads = document.getElementById('res-leads').value;
+  const cliques = document.getElementById('res-cliques').value;
   const conversoes = document.getElementById('res-conversoes').value;
   const receita = document.getElementById('res-receita').value;
   const justificativa = document.getElementById('res-justificativa').value.trim();
@@ -2656,14 +2748,14 @@ document.getElementById('res-btn-save').addEventListener('click', ()=>{
     if(r){
       r.tipoRegistro = tipoRegistro; r.mesReferencia = mesReferencia; r.nomeCampanha = nomeCampanha;
       r.dataInicio = dataInicio; r.dataFim = dataFim; r.empresa = empresa; r.plataforma = plataforma;
-      r.investimento = investimento; r.leads = leads; r.conversoes = conversoes; r.receita = receita;
+      r.investimento = investimento; r.leads = leads; r.cliques = cliques; r.conversoes = conversoes; r.receita = receita;
       r.justificativa = justificativa;
     }
   } else {
     resultados.push({
       id: uid(),
       tipoRegistro, mesReferencia, nomeCampanha, dataInicio, dataFim,
-      empresa, plataforma, investimento, leads, conversoes, receita, justificativa
+      empresa, plataforma, investimento, leads, cliques, conversoes, receita, justificativa
     });
   }
   closeResModal();
@@ -2927,8 +3019,6 @@ document.getElementById('crm-btn-save').addEventListener('click', async ()=>{
 async function initAll(){
   await loadData();
   await loadFinData();
-  await loadResultados();
-  await loadCrm();
   switchTab('demandas');
 }
 initAll();
@@ -2941,6 +3031,7 @@ const ALIASES = {
   campanha: ['campaign name','nome da campanha','campanha','ad name','nome do anúncio','ad set name','nome do conjunto de anúncios'],
   gasto: ['amount spent (brl)','amount spent (usd)','amount spent','valor usado (brl)','valor usado (usd)','valor usado','valor gasto','cost','custo','gasto'],
   leads: ['results','resultados','leads','conversions','conversões','result'],
+  cliques: ['link clicks','clicks (all)','clicks','cliques no link','cliques','clique no link'],
   dataInicio: ['reporting starts','início do relatório','data de início','start date','data inicial'],
   dataFim: ['reporting ends','término do relatório','data de término','end date','data final']
 };
@@ -3035,11 +3126,12 @@ function showMappingStep(){
   fillSelectWithHeaders('map-campanha', findBestColumn(csvHeaders, ALIASES.campanha));
   fillSelectWithHeaders('map-gasto', findBestColumn(csvHeaders, ALIASES.gasto));
   fillSelectWithHeaders('map-leads', findBestColumn(csvHeaders, ALIASES.leads));
+  fillSelectWithHeaders('map-cliques', findBestColumn(csvHeaders, ALIASES.cliques));
   fillSelectWithHeaders('map-data-inicio', findBestColumn(csvHeaders, ALIASES.dataInicio));
   fillSelectWithHeaders('map-data-fim', findBestColumn(csvHeaders, ALIASES.dataFim));
 
   renderImportPreview();
-  ['map-campanha','map-gasto','map-leads','map-data-inicio','map-data-fim'].forEach(id=>{
+  ['map-campanha','map-gasto','map-leads','map-cliques','map-data-inicio','map-data-fim'].forEach(id=>{
     document.getElementById(id).addEventListener('change', renderImportPreview);
   });
 }
@@ -3069,6 +3161,7 @@ document.getElementById('import-btn-confirm').addEventListener('click', async ()
   const colCampanha = document.getElementById('map-campanha').value;
   const colGasto = document.getElementById('map-gasto').value;
   const colLeads = document.getElementById('map-leads').value;
+  const colCliques = document.getElementById('map-cliques').value;
   const colDataInicio = document.getElementById('map-data-inicio').value;
   const colDataFim = document.getElementById('map-data-fim').value;
 
@@ -3092,6 +3185,7 @@ document.getElementById('import-btn-confirm').addEventListener('click', async ()
     if(!nomeCampanha) return;
     const investimento = colGasto ? parseNumeric(row[colGasto]) : 0;
     const leads = colLeads ? parseNumeric(row[colLeads]) : 0;
+    const cliques = colCliques ? parseNumeric(row[colCliques]) : 0;
     let dataInicio = colDataInicio ? parseDateFlexible(row[colDataInicio]) : '';
     let dataFim = colDataFim ? parseDateFlexible(row[colDataFim]) : '';
 
@@ -3122,7 +3216,7 @@ document.getElementById('import-btn-confirm').addEventListener('click', async ()
       nomeCampanha,
       dataInicio, dataFim,
       empresa, plataforma,
-      investimento, leads,
+      investimento, leads, cliques,
       conversoes: '', receita: '',
       justificativa: ''
     });
