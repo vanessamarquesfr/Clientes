@@ -198,21 +198,7 @@ body{
   <div class="client-card" id="card-flora">
     <div class="client-label">Cliente</div>
     <h2>Grupo Flora Brasil</h2>
-    <div class="client-desc">Painel de demandas, financeiro e resultados de mídia.</div>
-    <div class="enter-hint">Clique para acessar →</div>
-  </div>
-
-  <div class="client-card" id="card-tablegames">
-    <div class="client-label">Cliente</div>
-    <h2>Table Games / Frito no Pote</h2>
-    <div class="client-desc">Painel em construção.</div>
-    <div class="enter-hint">Clique para acessar →</div>
-  </div>
-
-  <div class="client-card" id="card-animeflix">
-    <div class="client-label">Cliente</div>
-    <h2>AnimeFlix</h2>
-    <div class="client-desc">Painel em construção.</div>
+    <div class="client-desc">Painel de demandas e financeiro.</div>
     <div class="enter-hint">Clique para acessar →</div>
   </div>
 </div>
@@ -232,29 +218,19 @@ body{
 
 <script>
 const SENHAS = {
-  flora: '1996',
-  tablegames: '0803',
-  animeflix: '0803'
+  flora: '1996'
 };
 const DESTINOS = {
   flora: 'painel.html'
 };
 const NOMES = {
-  flora: 'Grupo Flora Brasil',
-  tablegames: 'Table Games / Frito no Pote',
-  animeflix: 'AnimeFlix'
+  flora: 'Grupo Flora Brasil'
 };
 
 let clienteAtual = null;
 
 document.getElementById('card-flora').addEventListener('click', ()=>{
   abrirSenha('flora');
-});
-document.getElementById('card-tablegames').addEventListener('click', ()=>{
-  abrirSenha('tablegames');
-});
-document.getElementById('card-animeflix').addEventListener('click', ()=>{
-  abrirSenha('animeflix');
 });
 
 function abrirSenha(cliente){
